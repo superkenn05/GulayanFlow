@@ -20,13 +20,12 @@ service cloud.firestore {
     }
 
     function isSuperadmin() {
-      // The email is the ultimate source of truth for the single Superadmin
       return isSignedIn() && request.auth.token.email == 'markken@gulayan.ph';
     }
 
     function isAdmin() {
       let role = getStaffRole();
-      return isSignedIn() && (role == 'Admin' || isSuperadmin());
+      return isSignedIn() && (role == 'Admin' || role == 'Superadmin' || isSuperadmin());
     }
 
     function isStaff() {
@@ -37,14 +36,18 @@ service cloud.firestore {
     // --- Collection Rules ---
 
     match /staffUsers/{staffUserId} {
-      // Users can always read/update their own basic profile
-      allow get, update: if isSignedIn() && request.auth.uid == staffUserId;
+      // Allow GET for activation (by email-id) and identification. 
+      // Only allow public GET, not LIST, to protect privacy.
+      allow get: if true;
+      
+      // Users can update their own basic profile
+      allow update: if isSignedIn() && request.auth.uid == staffUserId;
       
       // Only the Superadmin can manage the directory and assign roles
       allow read, write: if isSuperadmin();
       
       // Admins can view the directory but not modify it
-      allow list, get: if isAdmin();
+      allow list: if isAdmin();
     }
 
     match /categories/{categoryId} {

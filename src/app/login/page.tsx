@@ -14,11 +14,8 @@ import {
   updateProfile 
 } from 'firebase/auth'
 import { 
-  collection, 
-  query, 
-  where, 
-  getDocs, 
   doc, 
+  getDoc,
   writeBatch,
   serverTimestamp
 } from 'firebase/firestore'
@@ -84,13 +81,13 @@ export default function LoginPage() {
             return
           }
 
-          // General Staff Activation
-          const staffQuery = query(collection(db, 'staffUsers'), where('email', '==', email))
-          const querySnapshot = await getDocs(staffQuery)
+          // General Staff Activation - Use direct document lookup instead of query
+          const staffDocId = email.replace(/[^a-zA-Z0-9]/g, '_')
+          const staffDocRef = doc(db, 'staffUsers', staffDocId)
+          const staffSnapshot = await getDoc(staffDocRef)
 
-          if (!querySnapshot.empty) {
-            const staffDoc = querySnapshot.docs[0]
-            const staffData = staffDoc.data()
+          if (staffSnapshot.exists()) {
+            const staffData = staffSnapshot.data()
 
             if (staffData.password === password) {
               if (password.length < 6) {
@@ -113,8 +110,9 @@ export default function LoginPage() {
                 updatedAt: serverTimestamp()
               })
 
-              if (staffDoc.id !== userCredential.user.uid) {
-                batch.delete(doc(db, 'staffUsers', staffDoc.id))
+              // Delete the placeholder doc (email-based ID) if it's different from the UID
+              if (staffSnapshot.id !== userCredential.user.uid) {
+                batch.delete(staffDocRef)
               }
 
               await batch.commit()
@@ -127,6 +125,8 @@ export default function LoginPage() {
           console.error("Activation error:", dbErr)
           if (dbErr.code === 'auth/email-already-in-use') {
             setError("This email is already registered. Please check your password.")
+            setIsLoading(false)
+            return
           }
         }
       }

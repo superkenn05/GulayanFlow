@@ -27,11 +27,13 @@ export default function DashboardPage() {
   const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
   const { data: profile, isLoading: profileLoading } = useDoc(staffRef)
 
-  // Ensure we don't query sensitive collections until the user's role is confirmed
-  const productsQuery = useMemoFirebase(() => profile ? query(collection(db, 'products')) : null, [db, profile])
+  // Wait until profile and role are confirmed before querying sensitive data
+  const hasAccess = !!profile?.role;
+
+  const productsQuery = useMemoFirebase(() => hasAccess ? query(collection(db, 'products')) : null, [db, hasAccess])
   const transactionsQuery = useMemoFirebase(() => 
-    profile ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(5)) : null, 
-    [db, profile]
+    hasAccess ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(5)) : null, 
+    [db, hasAccess]
   )
 
   const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
@@ -41,7 +43,7 @@ export default function DashboardPage() {
     setMounted(true)
   }, [])
 
-  if (!mounted || profileLoading) {
+  if (!mounted || profileLoading || (user && !profile)) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
@@ -123,7 +125,12 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {productsLoading || transactionsLoading ? (
+      {!hasAccess ? (
+        <Card className="p-12 flex flex-col items-center justify-center text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+          <p className="text-muted-foreground">Verifying staff permissions...</p>
+        </Card>
+      ) : productsLoading || transactionsLoading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
         </div>
