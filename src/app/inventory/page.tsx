@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -49,42 +51,99 @@ export default function InventoryPage() {
               <Plus className="h-4 w-4" /> Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle>Add New Product</DialogTitle>
               <DialogDescription>
-                Fill in the details for the new inventory item.
+                Fill in the details for the new inventory item. All fields are required for a complete customer view.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">Name</Label>
-                <Input id="name" className="col-span-3" placeholder="e.g. Cherry Tomato" />
+            <ScrollArea className="max-h-[70vh] pr-4">
+              <div className="grid gap-6 py-4">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Basic Information</h3>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">Name</Label>
+                    <Input id="name" className="col-span-3" placeholder="e.g. Red Tomatoes" />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="category" className="text-right">Category</Label>
+                    <Select>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MOCK_CATEGORIES.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="description" className="text-right">Description</Label>
+                    <Textarea id="description" className="col-span-3" placeholder="Fresh and juicy red tomatoes..." />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Pricing & Stock</h3>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="price" className="text-right">Price (₱)</Label>
+                    <Input id="price" type="number" className="col-span-3" placeholder="45.00" />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="unit" className="text-right">Unit</Label>
+                    <Select defaultValue="kg">
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="kg">kilogram (kg)</SelectItem>
+                        <SelectItem value="piece">piece</SelectItem>
+                        <SelectItem value="bunch">bunch</SelectItem>
+                        <SelectItem value="pack">pack</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="stock" className="text-right">Initial Stock</Label>
+                    <Input id="stock" type="number" className="col-span-3" placeholder="100" />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Media</h3>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="image" className="text-right">Image URL</Label>
+                    <Input id="image" className="col-span-3" placeholder="https://..." />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Nutritional Values (per 100g)</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-4 items-center gap-2">
+                      <Label htmlFor="calories" className="text-right text-xs">Calories</Label>
+                      <Input id="calories" className="col-span-3" placeholder="18kcal" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-2">
+                      <Label htmlFor="protein" className="text-right text-xs">Protein</Label>
+                      <Input id="protein" className="col-span-3" placeholder="0.9g" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-2">
+                      <Label htmlFor="carbs" className="text-right text-xs">Carbs</Label>
+                      <Input id="carbs" className="col-span-3" placeholder="3.9g" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-2">
+                      <Label htmlFor="fat" className="text-right text-xs">Fat</Label>
+                      <Input id="fat" className="col-span-3" placeholder="0.2g" />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="category" className="text-right">Category</Label>
-                <Select>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MOCK_CATEGORIES.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="price" className="text-right">Price (₱)</Label>
-                <Input id="price" type="number" className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="stock" className="text-right">Initial Stock</Label>
-                <Input id="stock" type="number" className="col-span-3" />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit">Save Product</Button>
+            </ScrollArea>
+            <DialogFooter className="mt-4">
+              <Button type="submit" className="w-full">Save Product</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
