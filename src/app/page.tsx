@@ -1,12 +1,9 @@
-
 "use client"
 
 import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Package, AlertTriangle, ArrowUpRight, ArrowDownRight, TrendingUp, ShoppingBag } from "lucide-react"
-import { MOCK_PRODUCTS, MOCK_TRANSACTIONS } from './lib/mock-data'
+import { Package, AlertTriangle, ArrowUpRight, ArrowDownRight, TrendingUp, ShoppingBag, Loader2 } from "lucide-react"
 import {
   BarChart,
   Bar,
@@ -19,31 +16,42 @@ import {
   PieChart,
   Pie
 } from 'recharts'
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase'
+import { collection, query, orderBy, limit } from 'firebase/firestore'
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
+  const db = useFirestore()
+
+  const productsQuery = useMemoFirebase(() => query(collection(db, 'products')), [db])
+  const transactionsQuery = useMemoFirebase(() => query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(5)), [db])
+
+  const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
+  const { data: transactions } = useCollection(transactionsQuery)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const totalProducts = MOCK_PRODUCTS.length
-  const lowStockItems = MOCK_PRODUCTS.filter(p => p.status === 'low-stock').length
-  const outOfStockItems = MOCK_PRODUCTS.filter(p => p.status === 'out-of-stock').length
+  const totalProducts = products?.length || 0
+  const lowStockItems = products?.filter(p => p.currentStockQuantity <= p.lowStockThreshold && p.currentStockQuantity > 0).length || 0
+  const outOfStockItems = products?.filter(p => p.currentStockQuantity <= 0).length || 0
 
-  const chartData = MOCK_PRODUCTS.map(p => ({
+  const chartData = products?.slice(0, 10).map(p => ({
     name: p.name,
-    stock: p.currentStock,
-    fill: p.status === 'low-stock' ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'
-  }))
+    stock: p.currentStockQuantity,
+    fill: p.currentStockQuantity <= p.lowStockThreshold ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'
+  })) || []
 
   const pieData = [
-    { name: 'In Stock', value: MOCK_PRODUCTS.filter(p => p.status === 'in-stock').length },
+    { name: 'In Stock', value: totalProducts - lowStockItems - outOfStockItems },
     { name: 'Low Stock', value: lowStockItems },
     { name: 'Out of Stock', value: outOfStockItems },
-  ]
+  ].filter(d => d.value > 0)
 
   const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--destructive))']
+
+  const totalValue = products?.reduce((acc, p) => acc + (p.currentStockQuantity * p.pricePerUnit), 0) || 0
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -65,7 +73,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalProducts}</div>
-            <p className="text-xs text-muted-foreground">+2 since yesterday</p>
+            <p className="text-xs text-muted-foreground">Active in catalog</p>
           </CardContent>
         </Card>
         <Card className="hover:shadow-md transition-shadow border-red-100 bg-red-50/10">
@@ -75,17 +83,17 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">{lowStockItems}</div>
-            <p className="text-xs text-muted-foreground">Action required immediately</p>
+            <p className="text-xs text-muted-foreground">Action required</p>
           </CardContent>
         </Card>
         <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Recent Sales</CardTitle>
+            <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
             <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">128</div>
-            <p className="text-xs text-muted-foreground">Last 24 hours</p>
+            <div className="text-2xl font-bold">{outOfStockItems}</div>
+            <p className="text-xs text-muted-foreground">Unavailable items</p>
           </CardContent>
         </Card>
         <Card className="hover:shadow-md transition-shadow">
@@ -94,124 +102,135 @@ export default function DashboardPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₱12,450</div>
-            <p className="text-xs text-muted-foreground">+5.2% from last month</p>
+            <div className="text-2xl font-bold">₱{totalValue.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Estimated total</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
-        <Card className="lg:col-span-4">
-          <CardHeader>
-            <CardTitle>Current Stock Levels</CardTitle>
-            <CardDescription>Quantities by product name</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                <Tooltip
-                  cursor={{ fill: 'transparent' }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="bg-background border p-2 rounded-lg shadow-sm text-xs">
-                          <p className="font-bold">{payload[0].payload.name}</p>
-                          <p className="text-primary">{payload[0].value} units</p>
-                        </div>
-                      )
-                    }
-                    return null
-                  }}
-                />
-                <Bar dataKey="stock" radius={[4, 4, 0, 0]}>
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+      {productsLoading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
+            <Card className="lg:col-span-4">
+              <CardHeader>
+                <CardTitle>Current Stock Levels</CardTitle>
+                <CardDescription>Top products and their current quantities</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                    <Tooltip
+                      cursor={{ fill: 'transparent' }}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-background border p-2 rounded-lg shadow-sm text-xs">
+                              <p className="font-bold">{payload[0].payload.name}</p>
+                              <p className="text-primary">{payload[0].value} units</p>
+                            </div>
+                          )
+                        }
+                        return null
+                      }}
+                    />
+                    <Bar dataKey="stock" radius={[4, 4, 0, 0]}>
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
 
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Inventory Health</CardTitle>
-            <CardDescription>Product status distribution</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px] flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-2xl font-bold">{totalProducts}</span>
-              <span className="text-xs text-muted-foreground text-center">Items<br/>Monitored</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest stock movements across all categories</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {MOCK_TRANSACTIONS.map((t) => {
-              const product = MOCK_PRODUCTS.find(p => p.id === t.productId)
-              return (
-                <div key={t.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${
-                      t.type === 'in' ? 'bg-green-100 text-green-700' :
-                      t.type === 'out' ? 'bg-blue-100 text-blue-700' :
-                      'bg-red-100 text-red-700'
-                    }`}>
-                      {t.type === 'in' ? <ArrowUpRight className="h-4 w-4" /> :
-                       t.type === 'out' ? <ArrowDownRight className="h-4 w-4" /> :
-                       <AlertTriangle className="h-4 w-4" />}
-                    </div>
-                    <div>
-                      <p className="font-medium">{product?.name || 'Unknown Product'}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {mounted ? new Date(t.date).toLocaleString() : ""}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`font-bold ${
-                      t.type === 'in' ? 'text-green-600' :
-                      t.type === 'out' ? 'text-blue-600' :
-                      'text-red-600'
-                    }`}>
-                      {t.type === 'in' ? '+' : '-'}{t.quantity} {product?.unit}
-                    </p>
-                    <p className="text-xs text-muted-foreground">by {t.staffName}</p>
-                  </div>
+            <Card className="lg:col-span-3">
+              <CardHeader>
+                <CardTitle>Inventory Health</CardTitle>
+                <CardDescription>Product status distribution</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[300px] flex items-center justify-center relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-2xl font-bold">{totalProducts}</span>
+                  <span className="text-xs text-muted-foreground text-center">Items<br/>Monitored</span>
                 </div>
-              )
-            })}
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Activity</CardTitle>
+              <CardDescription>Latest stock movements across all categories</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {transactions?.map((t) => {
+                  const product = products?.find(p => p.id === t.productId)
+                  return (
+                    <div key={t.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full ${
+                          t.quantityChange > 0 ? 'bg-green-100 text-green-700' :
+                          t.transactionType === 'STOCK_OUT_SALE' ? 'bg-blue-100 text-blue-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {t.quantityChange > 0 ? <ArrowUpRight className="h-4 w-4" /> :
+                           t.transactionType === 'STOCK_OUT_SALE' ? <ArrowDownRight className="h-4 w-4" /> :
+                           <AlertTriangle className="h-4 w-4" />}
+                        </div>
+                        <div>
+                          <p className="font-medium">{product?.name || 'Unknown Product'}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {mounted && t.transactionDate ? new Date(t.transactionDate.toDate()).toLocaleString() : "Processing..."}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-bold ${
+                          t.quantityChange > 0 ? 'text-green-600' :
+                          t.transactionType === 'STOCK_OUT_SALE' ? 'text-blue-600' :
+                          'text-red-600'
+                        }`}>
+                          {t.quantityChange > 0 ? '+' : ''}{t.quantityChange} {product?.unitOfMeasure}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Audit ID: {t.id.substring(0, 6)}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+                {!transactions?.length && (
+                  <p className="text-center text-sm text-muted-foreground py-4">No recent activity recorded.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   )
 }

@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Search, Filter, Edit, Trash2, MoreHorizontal, Sparkles, Loader2 } from "lucide-react"
-import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '../lib/mock-data'
 import Image from 'next/image'
 import {
   DropdownMenu,
@@ -31,24 +30,44 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { getNutritionalValues } from '@/ai/flows/nutritional-values-flow'
 import { toast } from '@/hooks/use-toast'
+import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase'
+import { collection, query, orderBy, doc, serverTimestamp } from 'firebase/firestore'
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates'
 
 export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [isAiLoading, setIsAiLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [open, setOpen] = useState(false)
   
+  const db = useFirestore()
+  const { user } = useUser()
+
+  const productsQuery = useMemoFirebase(() => query(collection(db, 'products'), orderBy('name', 'asc')), [db])
+  const categoriesQuery = useMemoFirebase(() => query(collection(db, 'categories'), orderBy('name', 'asc')), [db])
+
+  const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
+  const { data: categories } = useCollection(categoriesQuery)
+
   // Form State
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    categoryId: '',
+    pricePerUnit: '',
+    unitOfMeasure: 'kg',
+    currentStockQuantity: '',
+    lowStockThreshold: '10',
+    imageUrl: '',
     calories: '',
     protein: '',
     carbs: '',
     fat: ''
   })
 
-  const filteredProducts = MOCK_PRODUCTS.filter(p =>
+  const filteredProducts = products?.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  ) || []
 
   const handleAutofillNutrition = async () => {
     if (!formData.name) {
@@ -80,7 +99,6 @@ export default function InventoryPage() {
         description: `Estimated nutrition for ${formData.name} has been filled.`
       })
     } catch (error) {
-      console.error("AI Autofill failed:", error)
       toast({
         title: "AI failed",
         description: "Could not estimate nutrition. Please fill manually.",
@@ -91,6 +109,78 @@ export default function InventoryPage() {
     }
   }
 
+  const handleSaveProduct = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formData.name || !formData.categoryId || !formData.pricePerUnit) {
+      toast({ title: "Missing fields", description: "Please fill in all required fields.", variant: "destructive" })
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const productRef = doc(collection(db, 'products'))
+      const productData = {
+        id: productRef.id,
+        ...formData,
+        pricePerUnit: parseFloat(formData.pricePerUnit),
+        currentStockQuantity: parseFloat(formData.currentStockQuantity || '0'),
+        lowStockThreshold: parseFloat(formData.lowStockThreshold),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        nutritionalValues: {
+          calories: formData.calories,
+          protein: formData.protein,
+          carbs: formData.carbs,
+          fat: formData.fat
+        }
+      }
+
+      setDocumentNonBlocking(productRef, productData, { merge: true })
+      
+      toast({ title: "Success", description: `${formData.name} added to inventory.` })
+      setOpen(false)
+      setFormData({
+        name: '', description: '', categoryId: '', pricePerUnit: '', unitOfMeasure: 'kg',
+        currentStockQuantity: '', lowStockThreshold: '10', imageUrl: '',
+        calories: '', protein: '', carbs: '', fat: ''
+      })
+    } catch (error) {
+      toast({ title: "Error", description: "Could not save product.", variant: "destructive" })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDeleteProduct = (id: string, name: string) => {
+    deleteDocumentNonBlocking(doc(db, 'products', id))
+    toast({ title: "Deleted", description: `${name} removed from inventory.` })
+  }
+
+  const handleStockAdjustment = (product: any, type: 'STOCK_IN' | 'STOCK_OUT_WASTE', quantity: number) => {
+    const transactionRef = doc(collection(db, 'stockTransactions'))
+    const quantityChange = type === 'STOCK_IN' ? quantity : -quantity
+    
+    // Log Transaction
+    setDocumentNonBlocking(transactionRef, {
+      id: transactionRef.id,
+      productId: product.id,
+      staffUserId: user?.uid,
+      transactionType: type,
+      quantityChange,
+      transactionDate: serverTimestamp(),
+      unitCostAtTransaction: product.pricePerUnit,
+      reason: type === 'STOCK_OUT_WASTE' ? 'Manual waste entry' : 'Manual stock-in'
+    }, { merge: true })
+
+    // Update Product Stock
+    setDocumentNonBlocking(doc(db, 'products', product.id), {
+      currentStockQuantity: product.currentStockQuantity + quantityChange,
+      updatedAt: serverTimestamp()
+    }, { merge: true })
+
+    toast({ title: "Stock Updated", description: `${product.name} stock adjusted by ${quantityChange} ${product.unitOfMeasure}.` })
+  }
+
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -98,156 +188,188 @@ export default function InventoryPage() {
           <h1 className="text-3xl font-headline font-bold text-primary">Inventory</h1>
           <p className="text-muted-foreground">Manage your product catalog and current stock.</p>
         </div>
-        <Dialog onOpenChange={(open) => {
-          if (!open) setFormData({ name: '', description: '', calories: '', protein: '', carbs: '', fat: '' })
-        }}>
+        <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" /> Add Product
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Add New Product</DialogTitle>
-              <DialogDescription>
-                Fill in the details for the new inventory item.
-              </DialogDescription>
-            </DialogHeader>
-            <ScrollArea className="max-h-[70vh] pr-4">
-              <div className="grid gap-6 py-4">
-                <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Basic Information</h3>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">Name</Label>
-                    <Input 
-                      id="name" 
-                      className="col-span-3" 
-                      placeholder="e.g. Red Tomatoes" 
-                      value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    />
+            <form onSubmit={handleSaveProduct}>
+              <DialogHeader>
+                <DialogTitle>Add New Product</DialogTitle>
+                <DialogDescription>
+                  Fill in the details for the new inventory item.
+                </DialogDescription>
+              </DialogHeader>
+              <ScrollArea className="max-h-[70vh] pr-4">
+                <div className="grid gap-6 py-4">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Basic Information</h3>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="name" className="text-right">Name</Label>
+                      <Input 
+                        id="name" 
+                        className="col-span-3" 
+                        placeholder="e.g. Red Tomatoes" 
+                        required
+                        value={formData.name}
+                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="category" className="text-right">Category</Label>
+                      <Select 
+                        value={formData.categoryId} 
+                        onValueChange={(val) => setFormData(prev => ({ ...prev, categoryId: val }))}
+                      >
+                        <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories?.map(c => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="description" className="text-right">Description</Label>
+                      <Textarea 
+                        id="description" 
+                        className="col-span-3" 
+                        placeholder="Fresh and juicy..." 
+                        value={formData.description}
+                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                      />
+                    </div>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="category" className="text-right">Category</Label>
-                    <Select>
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MOCK_CATEGORIES.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="description" className="text-right">Description</Label>
-                    <Textarea 
-                      id="description" 
-                      className="col-span-3" 
-                      placeholder="Fresh and juicy..." 
-                      value={formData.description}
-                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    />
-                  </div>
-                </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Nutritional Values (per 100g)</h3>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="h-8 gap-2 text-xs border-primary/20 hover:bg-primary/5"
-                      onClick={handleAutofillNutrition}
-                      disabled={isAiLoading}
-                    >
-                      {isAiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3 text-accent" />}
-                      {isAiLoading ? "Consulting AI..." : "Magic Autofill"}
-                    </Button>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Nutritional Values (per 100g)</h3>
+                      <Button 
+                        type="button"
+                        variant="outline" 
+                        size="sm" 
+                        className="h-8 gap-2 text-xs border-primary/20 hover:bg-primary/5"
+                        onClick={handleAutofillNutrition}
+                        disabled={isAiLoading}
+                      >
+                        {isAiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3 text-accent" />}
+                        {isAiLoading ? "Consulting AI..." : "Magic Autofill"}
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-4 items-center gap-2">
+                        <Label htmlFor="calories" className="text-right text-xs">Calories</Label>
+                        <Input 
+                          id="calories" 
+                          className="col-span-3" 
+                          placeholder="18kcal" 
+                          value={formData.calories}
+                          onChange={(e) => setFormData(prev => ({ ...prev, calories: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-2">
+                        <Label htmlFor="protein" className="text-right text-xs">Protein</Label>
+                        <Input 
+                          id="protein" 
+                          className="col-span-3" 
+                          placeholder="0.9g" 
+                          value={formData.protein}
+                          onChange={(e) => setFormData(prev => ({ ...prev, protein: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-2">
+                        <Label htmlFor="carbs" className="text-right text-xs">Carbs</Label>
+                        <Input 
+                          id="carbs" 
+                          className="col-span-3" 
+                          placeholder="3.9g" 
+                          value={formData.carbs}
+                          onChange={(e) => setFormData(prev => ({ ...prev, carbs: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-2">
+                        <Label htmlFor="fat" className="text-right text-xs">Fat</Label>
+                        <Input 
+                          id="fat" 
+                          className="col-span-3" 
+                          placeholder="0.2g" 
+                          value={formData.fat}
+                          onChange={(e) => setFormData(prev => ({ ...prev, fat: e.target.value }))}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid grid-cols-4 items-center gap-2">
-                      <Label htmlFor="calories" className="text-right text-xs">Calories</Label>
-                      <Input 
-                        id="calories" 
-                        className="col-span-3" 
-                        placeholder="18kcal" 
-                        value={formData.calories}
-                        onChange={(e) => setFormData(prev => ({ ...prev, calories: e.target.value }))}
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-2">
-                      <Label htmlFor="protein" className="text-right text-xs">Protein</Label>
-                      <Input 
-                        id="protein" 
-                        className="col-span-3" 
-                        placeholder="0.9g" 
-                        value={formData.protein}
-                        onChange={(e) => setFormData(prev => ({ ...prev, protein: e.target.value }))}
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-2">
-                      <Label htmlFor="carbs" className="text-right text-xs">Carbs</Label>
-                      <Input 
-                        id="carbs" 
-                        className="col-span-3" 
-                        placeholder="3.9g" 
-                        value={formData.carbs}
-                        onChange={(e) => setFormData(prev => ({ ...prev, carbs: e.target.value }))}
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-2">
-                      <Label htmlFor="fat" className="text-right text-xs">Fat</Label>
-                      <Input 
-                        id="fat" 
-                        className="col-span-3" 
-                        placeholder="0.2g" 
-                        value={formData.fat}
-                        onChange={(e) => setFormData(prev => ({ ...prev, fat: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                </div>
 
-                <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Pricing & Stock</h3>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="price" className="text-right">Price (₱)</Label>
-                    <Input id="price" type="number" className="col-span-3" placeholder="45.00" />
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Pricing & Stock</h3>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="price" className="text-right">Price (₱)</Label>
+                      <Input 
+                        id="price" 
+                        type="number" 
+                        className="col-span-3" 
+                        placeholder="45.00" 
+                        required
+                        value={formData.pricePerUnit}
+                        onChange={(e) => setFormData(prev => ({ ...prev, pricePerUnit: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="unit" className="text-right">Unit</Label>
+                      <Select 
+                        value={formData.unitOfMeasure} 
+                        onValueChange={(val) => setFormData(prev => ({ ...prev, unitOfMeasure: val }))}
+                      >
+                        <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder="Select unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="kg">kilogram (kg)</SelectItem>
+                          <SelectItem value="piece">piece</SelectItem>
+                          <SelectItem value="bunch">bunch</SelectItem>
+                          <SelectItem value="pack">pack</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="stock" className="text-right">Initial Stock</Label>
+                      <Input 
+                        id="stock" 
+                        type="number" 
+                        className="col-span-3" 
+                        placeholder="100" 
+                        value={formData.currentStockQuantity}
+                        onChange={(e) => setFormData(prev => ({ ...prev, currentStockQuantity: e.target.value }))}
+                      />
+                    </div>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="unit" className="text-right">Unit</Label>
-                    <Select defaultValue="kg">
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select unit" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="kg">kilogram (kg)</SelectItem>
-                        <SelectItem value="piece">piece</SelectItem>
-                        <SelectItem value="bunch">bunch</SelectItem>
-                        <SelectItem value="pack">pack</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="stock" className="text-right">Initial Stock</Label>
-                    <Input id="stock" type="number" className="col-span-3" placeholder="100" />
-                  </div>
-                </div>
 
-                <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Media</h3>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="image" className="text-right">Image URL</Label>
-                    <Input id="image" className="col-span-3" placeholder="https://..." />
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Media</h3>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="image" className="text-right">Image URL</Label>
+                      <Input 
+                        id="image" 
+                        className="col-span-3" 
+                        placeholder="https://..." 
+                        value={formData.imageUrl}
+                        onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </ScrollArea>
-            <DialogFooter className="mt-4">
-              <Button type="submit" className="w-full">Save Product</Button>
-            </DialogFooter>
+              </ScrollArea>
+              <DialogFooter className="mt-4">
+                <Button type="submit" className="w-full" disabled={isSaving}>
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Save Product
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -267,70 +389,98 @@ export default function InventoryPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredProducts.map((product) => {
-          const category = MOCK_CATEGORIES.find(c => c.id === product.categoryId)
-          return (
-            <Card key={product.id} className="overflow-hidden group hover:shadow-lg transition-all border-none bg-white shadow-sm ring-1 ring-border">
-              <div className="relative h-48 w-full overflow-hidden bg-muted">
-                <Image
-                  src={product.imageUrl}
-                  alt={product.name}
-                  fill
-                  className="object-cover transition-transform group-hover:scale-105"
-                  data-ai-hint="vegetable fruit produce"
-                />
-                <div className="absolute top-2 right-2">
-                  <Badge className={`${
-                    product.status === 'in-stock' ? 'bg-green-500 hover:bg-green-600' :
-                    product.status === 'low-stock' ? 'bg-orange-500 hover:bg-orange-600' :
-                    'bg-red-500 hover:bg-red-600'
-                  } text-white border-none shadow-sm`}>
-                    {product.status.replace('-', ' ')}
-                  </Badge>
-                </div>
-              </div>
-              <CardHeader className="p-4 pb-2">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg font-headline font-bold">{product.name}</CardTitle>
-                    <CardDescription>{category?.name}</CardDescription>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem className="gap-2"><Edit className="h-4 w-4" /> Edit</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="gap-2 text-destructive"><Trash2 className="h-4 w-4" /> Delete</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <div className="flex justify-between items-end mt-2">
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Price</p>
-                    <p className="text-xl font-bold text-primary">₱{product.price}<span className="text-xs font-normal text-muted-foreground ml-1">/ {product.unit}</span></p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Stock</p>
-                    <p className={`text-xl font-bold ${product.currentStock < 10 ? 'text-destructive' : ''}`}>{product.currentStock} <span className="text-xs font-normal">{product.unit}</span></p>
+      {productsLoading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredProducts.map((product) => {
+            const category = categories?.find(c => c.id === product.categoryId)
+            const isLowStock = product.currentStockQuantity <= product.lowStockThreshold
+            const isOutOfStock = product.currentStockQuantity <= 0
+
+            return (
+              <Card key={product.id} className="overflow-hidden group hover:shadow-lg transition-all border-none bg-white shadow-sm ring-1 ring-border">
+                <div className="relative h-48 w-full overflow-hidden bg-muted">
+                  <Image
+                    src={product.imageUrl || 'https://picsum.photos/seed/produce/400/300'}
+                    alt={product.name}
+                    fill
+                    className="object-cover transition-transform group-hover:scale-105"
+                    data-ai-hint="vegetable fruit produce"
+                  />
+                  <div className="absolute top-2 right-2">
+                    <Badge className={`${
+                      isOutOfStock ? 'bg-red-500' :
+                      isLowStock ? 'bg-orange-500' :
+                      'bg-green-500'
+                    } text-white border-none shadow-sm`}>
+                      {isOutOfStock ? 'OUT OF STOCK' : isLowStock ? 'LOW STOCK' : 'IN STOCK'}
+                    </Badge>
                   </div>
                 </div>
-              </CardContent>
-              <CardFooter className="p-4 bg-muted/30 border-t flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1 bg-white">Stock In</Button>
-                <Button variant="outline" size="sm" className="flex-1 bg-white">Waste</Button>
-              </CardFooter>
-            </Card>
-          )
-        })}
-      </div>
+                <CardHeader className="p-4 pb-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg font-headline font-bold">{product.name}</CardTitle>
+                      <CardDescription>{category?.name || 'Uncategorized'}</CardDescription>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem className="gap-2"><Edit className="h-4 w-4" /> Edit</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          className="gap-2 text-destructive"
+                          onClick={() => handleDeleteProduct(product.id, product.name)}
+                        >
+                          <Trash2 className="h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <div className="flex justify-between items-end mt-2">
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Price</p>
+                      <p className="text-xl font-bold text-primary">₱{product.pricePerUnit}<span className="text-xs font-normal text-muted-foreground ml-1">/ {product.unitOfMeasure}</span></p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Stock</p>
+                      <p className={`text-xl font-bold ${isLowStock ? 'text-destructive' : ''}`}>{product.currentStockQuantity} <span className="text-xs font-normal">{product.unitOfMeasure}</span></p>
+                    </div>
+                  </div>
+                </CardContent>
+                <CardFooter className="p-4 bg-muted/30 border-t flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 bg-white"
+                    onClick={() => handleStockAdjustment(product, 'STOCK_IN', 1)}
+                  >
+                    Stock In
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 bg-white text-destructive hover:text-destructive"
+                    onClick={() => handleStockAdjustment(product, 'STOCK_OUT_WASTE', 1)}
+                  >
+                    Waste
+                  </Button>
+                </CardFooter>
+              </Card>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
