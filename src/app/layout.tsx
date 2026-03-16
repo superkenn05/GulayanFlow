@@ -1,4 +1,3 @@
-
 import type {Metadata} from 'next';
 import './globals.css';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
@@ -37,22 +36,25 @@ export default function RootLayout({
   );
 }
 
-// Separate component to handle the conditional sidebar layout
 function LayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
-        {/* The sidebar will be hidden by its own logic if we are on the login page or unauthenticated */}
         <AppSidebar />
         <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 md:px-6">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-4" />
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-primary">GulayanFlow</span>
-              <span className="text-xs text-muted-foreground hidden sm:inline-block">/ Dashboard</span>
-            </div>
-          </header>
+          {/* Header is handled conditionally via a wrapper that checks current route if needed, 
+              but simplified here: Sidebar itself hides on Login, 
+              we can hide the header elements too for a cleaner experience */}
+          <HeaderWrapper>
+            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 md:px-6">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="mr-2 h-4" />
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-primary">GulayanFlow</span>
+                <span className="text-xs text-muted-foreground hidden sm:inline-block">/ Dashboard</span>
+              </div>
+            </header>
+          </HeaderWrapper>
           <main className="p-4 md:p-8 lg:p-12 min-h-screen">
             {children}
           </main>
@@ -61,3 +63,5 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
+
+import { LayoutHeaderHider as HeaderWrapper } from '@/components/layout/LayoutHeaderHider';

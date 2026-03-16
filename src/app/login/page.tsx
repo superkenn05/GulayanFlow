@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -37,7 +36,7 @@ export default function LoginPage() {
   const router = useRouter()
   const { user } = useUser()
 
-  // If user is already logged in as a non-anonymous user, redirect to dashboard
+  // Redirect if already logged in (as a non-anonymous user)
   useEffect(() => {
     if (user && !user.isAnonymous) {
       router.push('/')
@@ -60,8 +59,11 @@ export default function LoginPage() {
     } catch (err: any) {
       console.log("Auth attempt failed, checking database for activation...", err.code)
       
-      // 2. If login fails (user not found or invalid), check Firestore for pre-registered staff
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+      // 2. If login fails, check Firestore for pre-registered staff (Activation Flow)
+      // Standard error codes for "not found" or "invalid"
+      const isUserNotFound = err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password';
+      
+      if (isUserNotFound) {
         try {
           const staffQuery = query(
             collection(db, 'staffUsers'), 
@@ -73,30 +75,28 @@ export default function LoginPage() {
             const staffDoc = querySnapshot.docs[0]
             const staffData = staffDoc.data()
 
-            // Check if the provided password matches the one in the database record
-            // Note: In a real production app, passwords should never be stored in plain text.
-            // This is a bridge for the user's specific requirement.
+            // Verify password against DB record (Activation bridge)
             if (staffData.password === password) {
               
-              // Ensure password is at least 6 characters (Firebase requirement)
+              // Firebase requires 6+ chars
               if (password.length < 6) {
-                setError("Firebase requires a password of at least 6 characters. Please ask your Admin to update your password record.")
+                setError("Firebase requires a password of at least 6 characters. Please update the staff record in the Admin panel.")
                 setIsLoading(false)
                 return
               }
 
-              // 3. Activation Flow: Create the Auth User
+              // 3. Create the Auth User
               const userCredential = await createUserWithEmailAndPassword(auth, email, password)
               
-              // Update Auth Profile
+              // Update Auth Profile Display Name
               await updateProfile(userCredential.user, {
                 displayName: staffData.name
               })
 
-              // Update Firestore record with the new Auth UID
+              // Link Firestore record to the new Auth UID
               const staffRef = doc(db, 'staffUsers', staffDoc.id)
               await updateDoc(staffRef, {
-                id: userCredential.user.uid, // Sync UID
+                id: userCredential.user.uid,
                 lastLogin: serverTimestamp(),
                 status: 'active'
               })
@@ -110,11 +110,10 @@ export default function LoginPage() {
             }
           }
         } catch (dbErr) {
-          console.error("Database verification failed:", dbErr)
+          console.error("Database activation check failed:", dbErr)
         }
       }
 
-      // If we reach here, it's a genuine failed login
       setError("Invalid email or password. Please try again.")
       toast({
         variant: "destructive",
@@ -128,16 +127,16 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md shadow-xl border-none">
+      <Card className="w-full max-w-md shadow-xl border-none animate-in fade-in zoom-in-95 duration-500">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground">
+            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
               <Leaf className="h-8 w-8" />
             </div>
           </div>
           <CardTitle className="text-2xl font-headline font-bold">GulayanFlow</CardTitle>
           <CardDescription>
-            Enter your credentials to access Gemma's Gulayan inventory.
+            Enter your credentials to access the inventory system.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>
@@ -145,7 +144,7 @@ export default function LoginPage() {
             {error && (
               <Alert variant="destructive" className="py-3">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle className="text-xs font-bold uppercase">Error</AlertTitle>
+                <AlertTitle className="text-xs font-bold uppercase">Auth Error</AlertTitle>
                 <AlertDescription className="text-xs">
                   {error}
                 </AlertDescription>
@@ -158,8 +157,8 @@ export default function LoginPage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="gemma@gulayan.ph" 
-                  className="pl-10"
+                  placeholder="name@gulayan.ph" 
+                  className="pl-10 h-11"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required 
@@ -169,16 +168,13 @@ export default function LoginPage() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
-                <Button variant="link" className="px-0 font-normal text-xs text-muted-foreground">
-                  Forgot password?
-                </Button>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
                   id="password" 
                   type="password" 
-                  className="pl-10"
+                  className="pl-10 h-11"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required 
@@ -187,12 +183,12 @@ export default function LoginPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button className="w-full h-11" type="submit" disabled={isLoading}>
+            <Button className="w-full h-11 text-base font-bold shadow-lg shadow-primary/10" type="submit" disabled={isLoading}>
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Sign In
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Authorized personnel only. Contact Admin for new account registration.
+              Authorized staff only. Contact your Admin for account setup.
             </p>
           </CardFooter>
         </form>
