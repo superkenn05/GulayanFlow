@@ -125,6 +125,10 @@ export default function InventoryPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Show local preview immediately
+    const objectUrl = URL.createObjectURL(file);
+    setLocalPreview(objectUrl);
+
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
@@ -137,9 +141,6 @@ export default function InventoryPage() {
       return;
     }
 
-    // Show local preview immediately
-    const objectUrl = URL.createObjectURL(file);
-    setLocalPreview(objectUrl);
     setIsUploading(true);
 
     const uploadData = new FormData();
@@ -170,7 +171,6 @@ export default function InventoryPage() {
         description: "Could not upload image to Cloudinary.",
         variant: "destructive"
       });
-      setLocalPreview(null);
     } finally {
       setIsUploading(false);
     }
@@ -431,51 +431,39 @@ export default function InventoryPage() {
                           )}
                           onClick={() => fileInputRef.current?.click()}
                         >
-                          {isUploading ? (
-                            <div className="relative h-full w-full flex items-center justify-center">
-                              {localPreview && (
+                          {(formData.imageUrl || localPreview) ? (
+                            <div className="relative h-full w-full">
+                              {/* Using standard img for local preview to ensure absolute compatibility with blob URLs */}
+                              {formData.imageUrl ? (
                                 <Image 
-                                  src={localPreview} 
-                                  alt="Uploading preview" 
+                                  src={formData.imageUrl} 
+                                  alt="Preview" 
                                   fill 
-                                  className="object-cover opacity-40"
-                                  unoptimized
+                                  className="object-cover"
+                                />
+                              ) : (
+                                <img 
+                                  src={localPreview!} 
+                                  alt="Local Preview" 
+                                  className="h-full w-full object-cover"
                                 />
                               )}
-                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/10">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                <span className="text-xs text-primary font-bold bg-white/80 px-2 py-1 rounded">Uploading...</span>
-                              </div>
+                              
+                              {isUploading && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/30 backdrop-blur-[2px]">
+                                  <Loader2 className="h-8 w-8 animate-spin text-white" />
+                                  <span className="text-xs text-white font-bold bg-black/40 px-2 py-1 rounded">Uploading...</span>
+                                </div>
+                              )}
+
+                              {!isUploading && (
+                                <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <Button type="button" variant="secondary" size="sm" className="gap-2">
+                                    <Upload className="h-4 w-4" /> Change Image
+                                  </Button>
+                                </div>
+                              )}
                             </div>
-                          ) : formData.imageUrl ? (
-                            <>
-                              <Image 
-                                src={formData.imageUrl} 
-                                alt="Preview" 
-                                fill 
-                                className="object-cover"
-                              />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <Button type="button" variant="secondary" size="sm" className="gap-2">
-                                  <Upload className="h-4 w-4" /> Change Image
-                                </Button>
-                              </div>
-                            </>
-                          ) : localPreview ? (
-                            <>
-                              <Image 
-                                src={localPreview} 
-                                alt="Local Preview" 
-                                fill 
-                                className="object-cover"
-                                unoptimized
-                              />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <Button type="button" variant="secondary" size="sm" className="gap-2">
-                                  <Upload className="h-4 w-4" /> Change Image
-                                </Button>
-                              </div>
-                            </>
                           ) : (
                             <div className="flex flex-col items-center gap-2">
                               <div className="p-3 bg-primary/10 rounded-full">
