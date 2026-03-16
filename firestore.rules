@@ -17,16 +17,6 @@ service cloud.firestore {
      * - /categories: Shared product classifications.
      * - /products: Shared inventory items.
      * - /stockTransactions: Audit logs of all stock movements.
-     *
-     * Key Security Decisions:
-     * 1. DBAC (Database Access Control): User roles ('Admin', 'Staff') are stored directly 
-     *    on the user's document in /staffUsers and used to gate access to global collections.
-     * 2. Path-Based Ownership: Users have exclusive access to their own profile data 
-     *    based on their Firebase Auth UID.
-     * 3. Relational Integrity: On creation of transactions, the rules enforce that the 
-     *    'staffUserId' matches the actual authenticated user to ensure audit log accuracy.
-     * 4. Prototyping Flexibility: Schema validation (types, required fields) is omitted 
-     *    to allow rapid UI iteration, focusing strictly on identity and role authorization.
      */
 
     // --- Helper Functions ---
@@ -41,9 +31,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /** Retrieves the role of the authenticated staff member from their profile. */
+    /** 
+     * Retrieves the role of the authenticated staff member from their profile. 
+     * Uses exists() to prevent errors if the document is not yet created.
+     */
     function getStaffRole() {
-      return get(/databases/$(database)/documents/staffUsers/$(request.auth.uid)).data.role;
+      let path = /databases/$(database)/documents/staffUsers/$(request.auth.uid);
+      return exists(path) ? get(path).data.role : 'Guest';
     }
 
     /** Checks if the user has the 'Admin' role. */
@@ -53,7 +47,8 @@ service cloud.firestore {
 
     /** Checks if the user is any authenticated staff member (Staff or Admin). */
     function isStaff() {
-      return isSignedIn() && (getStaffRole() == 'Staff' || getStaffRole() == 'Admin');
+      let role = getStaffRole();
+      return isSignedIn() && (role == 'Staff' || role == 'Admin');
     }
 
     /** Combines ownership and existence checks for destructive operations. */
@@ -65,25 +60,17 @@ service cloud.firestore {
 
     /**
      * @description Rules for staff member profiles. Users can manage their own data; Admins can view/manage all.
-     * @path /staffUsers/{staffUserId}
-     * @allow (get) If user is the owner or an Admin.
-     * @deny (create) If the staffUserId does not match the auth UID.
-     * @principle Enforces path-based ownership for sensitive user profiles.
      */
     match /staffUsers/{staffUserId} {
       allow get: if isOwner(staffUserId) || isAdmin();
       allow list: if isAdmin() || isOwner(staffUserId);
-      allow create: if isOwner(staffUserId) && request.resource.data.id == staffUserId;
-      allow update: if (isExistingOwner(staffUserId) || isAdmin()) && request.resource.data.id == staffUserId;
+      allow create: if isOwner(staffUserId);
+      allow update: if (isExistingOwner(staffUserId) || isAdmin());
       allow delete: if isAdmin();
     }
 
     /**
      * @description Rules for product categories. Accessible to all authorized staff.
-     * @path /categories/{categoryId}
-     * @allow (list) If user has 'Staff' or 'Admin' role.
-     * @deny (write) If user is not signed in or lacks a staff role.
-     * @principle Role-based access for shared operational metadata.
      */
     match /categories/{categoryId} {
       allow get, list: if isStaff();
@@ -94,10 +81,6 @@ service cloud.firestore {
 
     /**
      * @description Rules for inventory products. Accessible to all authorized staff.
-     * @path /products/{productId}
-     * @allow (update) By any staff member to adjust stock levels.
-     * @deny (read) By unauthenticated or non-staff users.
-     * @principle Homogeneous access for staff members to shared inventory data.
      */
     match /products/{productId} {
       allow get, list: if isStaff();
@@ -108,17 +91,10 @@ service cloud.firestore {
 
     /**
      * @description Rules for stock movement logs. Ensures audit trail integrity.
-     * @path /stockTransactions/{transactionId}
-     * @allow (create) If the staffUserId in the data matches the authenticated user.
-     * @deny (update) Prevent modification of historical transaction records (Admin only).
-     * @principle Relational integrity and non-repudiation for audit logs.
      */
     match /stockTransactions/{transactionId} {
       allow get, list: if isStaff();
       allow create: if isStaff() && request.resource.data.staffUserId == request.auth.uid;
-      
-      // Usually, transactions are immutable for audit purposes. 
-      // We restrict updates/deletes to Admins or deny entirely.
       allow update: if resource != null && isAdmin();
       allow delete: if resource != null && isAdmin();
     }
