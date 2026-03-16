@@ -34,12 +34,12 @@ service cloud.firestore {
       // Allow users to manage their own profiles (crucial for AuthInitializer)
       allow get, create, update: if isSignedIn() && request.auth.uid == staffUserId;
       
+      // Admins can manage all staff profiles
+      allow write: if isAdmin();
+      
       // Allow staff to view directory (e.g., for transaction attribution)
       allow list: if isStaff();
       allow get: if isStaff();
-      
-      // Admins can delete staff
-      allow delete: if isAdmin();
     }
 
     match /categories/{categoryId} {
