@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState } from 'react'
@@ -5,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { UserPlus, Shield, MoreVertical, Mail, Activity, Loader2, Trash2 } from "lucide-react"
+import { UserPlus, Shield, MoreVertical, Mail, Activity, Loader2, Trash2, Lock } from "lucide-react"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -27,15 +28,20 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase'
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
 import { collection, query, orderBy, doc, serverTimestamp } from 'firebase/firestore'
 import { deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates'
 import { toast } from '@/hooks/use-toast'
 
 export default function AdminManagementPage() {
   const db = useFirestore()
+  const { user } = useUser()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  
+  // Check Admin role
+  const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
+  const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
   
   const staffQuery = useMemoFirebase(() => query(collection(db, 'staffUsers'), orderBy('createdAt', 'desc')), [db])
   const { data: staff, isLoading } = useCollection(staffQuery)
@@ -98,6 +104,32 @@ export default function AdminManagementPage() {
       title: "Role Updated",
       description: `Staff role changed to ${newRole}.`
     })
+  }
+
+  if (isProfileLoading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+      </div>
+    )
+  }
+
+  if (profile?.role !== 'Admin') {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] space-y-4 text-center">
+        <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center text-destructive">
+          <Lock className="h-8 w-8" />
+        </div>
+        <h2 className="text-2xl font-headline font-bold">Access Denied</h2>
+        <p className="text-muted-foreground max-w-sm">
+          You do not have administrative privileges to access this management area. 
+          Please contact an owner if you believe this is an error.
+        </p>
+        <Button asChild variant="outline">
+          <a href="/">Return to Dashboard</a>
+        </Button>
+      </div>
+    )
   }
 
   return (
