@@ -25,17 +25,29 @@ export default function DashboardPage() {
   const { user } = useUser()
 
   const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
-  const { data: profile } = useDoc(staffRef)
+  const { data: profile, isLoading: profileLoading } = useDoc(staffRef)
 
-  const productsQuery = useMemoFirebase(() => query(collection(db, 'products')), [db])
-  const transactionsQuery = useMemoFirebase(() => query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(5)), [db])
+  // Ensure we don't query sensitive collections until the user's role is confirmed
+  const productsQuery = useMemoFirebase(() => profile ? query(collection(db, 'products')) : null, [db, profile])
+  const transactionsQuery = useMemoFirebase(() => 
+    profile ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(5)) : null, 
+    [db, profile]
+  )
 
   const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
-  const { data: transactions } = useCollection(transactionsQuery)
+  const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery)
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  if (!mounted || profileLoading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+      </div>
+    )
+  }
 
   const totalProducts = products?.length || 0
   const lowStockItems = products?.filter(p => p.currentStockQuantity <= p.lowStockThreshold && p.currentStockQuantity > 0).length || 0
@@ -48,13 +60,12 @@ export default function DashboardPage() {
   })) || []
 
   const pieData = [
-    { name: 'In Stock', value: totalProducts - lowStockItems - outOfStockItems },
+    { name: 'In Stock', value: Math.max(0, totalProducts - lowStockItems - outOfStockItems) },
     { name: 'Low Stock', value: lowStockItems },
     { name: 'Out of Stock', value: outOfStockItems },
   ].filter(d => d.value > 0)
 
   const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--destructive))']
-
   const totalValue = products?.reduce((acc, p) => acc + (p.currentStockQuantity * p.pricePerUnit), 0) || 0
 
   return (
@@ -112,7 +123,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {productsLoading ? (
+      {productsLoading || transactionsLoading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
         </div>
@@ -220,7 +231,7 @@ export default function DashboardPage() {
                           t.transactionType === 'STOCK_OUT_SALE' ? 'text-blue-600' :
                           'text-red-600'
                         }`}>
-                          {t.quantityChange > 0 ? '+' : ''}{t.quantityChange} {product?.unitOfMeasure}
+                          {t.quantityChange > 0 ? '+' : ''}{t.quantityChange} {product?.unitOfMeasure || ''}
                         </p>
                         <p className="text-xs text-muted-foreground">Audit ID: {t.id.substring(0, 6)}</p>
                       </div>

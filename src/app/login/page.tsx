@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -21,7 +20,8 @@ import {
   getDocs, 
   doc, 
   writeBatch,
-  serverTimestamp 
+  serverTimestamp,
+  getDoc
 } from 'firebase/firestore'
 import { toast } from '@/hooks/use-toast'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -49,6 +49,7 @@ export default function LoginPage() {
     setError(null)
 
     try {
+      // 1. Try standard login
       await signInWithEmailAndPassword(auth, email, password)
       toast({
         title: "Welcome back!",
@@ -56,50 +57,45 @@ export default function LoginPage() {
       })
       router.push('/')
     } catch (err: any) {
-      console.log("Auth attempt failed, checking database for activation...", err.code)
+      // 2. If login fails, check for a "placeholder" bridge
+      const isCredentialError = err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password';
       
-      const isUserNotFound = err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password';
-      
-      if (isUserNotFound) {
+      if (isCredentialError) {
         try {
-          const staffQuery = query(
-            collection(db, 'staffUsers'), 
-            where('email', '==', email)
-          )
+          const staffQuery = query(collection(db, 'staffUsers'), where('email', '==', email))
           const querySnapshot = await getDocs(staffQuery)
 
           if (!querySnapshot.empty) {
             const staffDoc = querySnapshot.docs[0]
             const staffData = staffDoc.data()
 
+            // Verify the placeholder password stored by Admin
             if (staffData.password === password) {
               if (password.length < 6) {
-                setError("Firebase requires a password of at least 6 characters. Please update the staff record in the Admin panel.")
+                setError("Password must be at least 6 characters for activation.")
                 setIsLoading(false)
                 return
               }
 
+              // Create the real Auth account
               const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-              
-              await updateProfile(userCredential.user, {
-                displayName: staffData.name
-              })
+              await updateProfile(userCredential.user, { displayName: staffData.name })
 
+              // Migrate/Link the database document to the new UID
               const batch = writeBatch(db)
               const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
-              const oldUserRef = doc(db, 'staffUsers', staffDoc.id)
-
-              // Migrate data from placeholder to UID-based document
+              
               batch.set(newUserRef, {
                 ...staffData,
                 id: userCredential.user.uid,
                 lastLogin: serverTimestamp(),
-                status: 'active'
+                status: 'active',
+                updatedAt: serverTimestamp()
               })
 
-              // Delete the placeholder if it's different from the UID (it usually is)
+              // If the placeholder ID was different (e.g., email-based), delete it
               if (staffDoc.id !== userCredential.user.uid) {
-                batch.delete(oldUserRef)
+                batch.delete(doc(db, 'staffUsers', staffDoc.id))
               }
 
               await batch.commit()
@@ -113,11 +109,11 @@ export default function LoginPage() {
             }
           }
         } catch (dbErr) {
-          console.error("Database activation check failed:", dbErr)
+          console.error("Migration error:", dbErr)
         }
       }
 
-      setError("Invalid email or password. Please try again.")
+      setError("Invalid email or password. Please check your credentials.")
       toast({
         variant: "destructive",
         title: "Login Failed",

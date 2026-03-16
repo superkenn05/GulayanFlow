@@ -5,13 +5,17 @@ service cloud.firestore {
     /**
      * GEMMA'S GULAYAN - SECURITY RULES
      * 
-     * Robust role-based access control focusing on authorization independence.
+     * Robust role-based access control.
      */
 
     // --- Helper Functions ---
 
     function isSignedIn() {
       return request.auth != null;
+    }
+
+    function getStaffDoc() {
+      return get(/databases/$(database)/documents/staffUsers/$(request.auth.uid));
     }
 
     function getStaffRole() {
@@ -31,35 +35,30 @@ service cloud.firestore {
     // --- Collection Rules ---
 
     match /staffUsers/{staffUserId} {
-      // Allow users to manage their own profiles (crucial for AuthInitializer)
+      // Allow users to manage their own profiles
       allow get, create, update: if isSignedIn() && request.auth.uid == staffUserId;
       
+      // Allow searching for placeholder docs during activation (checked by email)
+      allow list: if isSignedIn();
+      allow get: if isSignedIn();
+
       // Admins can manage all staff profiles
       allow write: if isAdmin();
-      
-      // Allow staff to view directory (e.g., for transaction attribution)
-      allow list: if isStaff();
-      allow get: if isStaff();
     }
 
     match /categories/{categoryId} {
-      // Allow staff to manage categories
-      allow read, write: if isStaff();
+      allow read: if isSignedIn();
+      allow write: if isStaff();
     }
 
     match /products/{productId} {
-      // Allow staff to manage products
-      allow read, write: if isStaff();
+      allow read: if isSignedIn();
+      allow write: if isStaff();
     }
 
     match /stockTransactions/{transactionId} {
-      // Allow staff to view transactions
       allow read: if isStaff();
-      
-      // Allow staff to record their own transactions
-      allow create: if isStaff() && request.resource.data.staffUserId == request.auth.uid;
-      
-      // Admins can modify/delete history (for corrections)
+      allow create: if isStaff();
       allow update, delete: if isAdmin();
     }
 
