@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useRef } from 'react'
@@ -33,6 +34,7 @@ import { toast } from '@/hooks/use-toast'
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase'
 import { collection, query, orderBy, doc, serverTimestamp } from 'firebase/firestore'
 import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates'
+import { cn } from '@/lib/utils'
 
 export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('')
@@ -121,7 +123,7 @@ export default function InventoryPage() {
     if (!cloudName || !uploadPreset) {
       toast({
         title: "Cloudinary not configured",
-        description: "Please set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET environment variables.",
+        description: "Please set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET in your environment.",
         variant: "destructive"
       });
       return;
@@ -153,7 +155,7 @@ export default function InventoryPage() {
       console.error('Cloudinary upload error:', error);
       toast({
         title: "Upload Failed",
-        description: "Could not upload image to Cloudinary. Check your configuration.",
+        description: "Could not upload image to Cloudinary.",
         variant: "destructive"
       });
     } finally {
@@ -401,29 +403,70 @@ export default function InventoryPage() {
                   </div>
 
                   <div className="space-y-4">
-                    <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Media</h3>
+                    <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Product Media</h3>
                     <div className="grid grid-cols-4 items-start gap-4">
                       <Label className="text-right mt-2">Image</Label>
                       <div className="col-span-3 space-y-3">
+                        <div 
+                          className={cn(
+                            "relative h-48 w-full rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden",
+                            formData.imageUrl ? "border-solid" : "border-muted"
+                          )}
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          {isUploading ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                              <span className="text-xs text-muted-foreground">Uploading to Cloudinary...</span>
+                            </div>
+                          ) : formData.imageUrl ? (
+                            <>
+                              <Image 
+                                src={formData.imageUrl} 
+                                alt="Preview" 
+                                fill 
+                                className="object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <Button type="button" variant="secondary" size="sm" className="gap-2">
+                                  <Upload className="h-4 w-4" /> Change Image
+                                </Button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="p-3 bg-primary/10 rounded-full">
+                                <ImageIcon className="h-6 w-6 text-primary" />
+                              </div>
+                              <div className="text-center">
+                                <p className="text-sm font-medium">Click to upload product image</p>
+                                <p className="text-xs text-muted-foreground">Or drag and drop PNG, JPG</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
                         <div className="flex gap-2">
                           <Input 
-                            id="image" 
+                            id="image-url" 
                             className="flex-1" 
-                            placeholder="Image URL or upload..." 
+                            placeholder="Or paste an image URL directly..." 
                             value={formData.imageUrl}
                             onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
                           />
-                          <Button 
-                            type="button" 
-                            variant="secondary" 
-                            size="icon" 
-                            className="shrink-0"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={isUploading}
-                          >
-                            {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                          </Button>
+                          {formData.imageUrl && (
+                            <Button 
+                              type="button" 
+                              variant="destructive" 
+                              size="icon" 
+                              className="shrink-0"
+                              onClick={() => setFormData(prev => ({ ...prev, imageUrl: '' }))}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
+                        
                         <input 
                           type="file" 
                           ref={fileInputRef} 
@@ -431,28 +474,6 @@ export default function InventoryPage() {
                           accept="image/*"
                           onChange={handleCloudinaryUpload}
                         />
-                        {formData.imageUrl && (
-                          <div className="relative h-32 w-full rounded-md overflow-hidden border">
-                            <Image 
-                              src={formData.imageUrl} 
-                              alt="Preview" 
-                              fill 
-                              className="object-cover"
-                            />
-                            <Button 
-                              type="button" 
-                              variant="destructive" 
-                              size="icon" 
-                              className="absolute top-1 right-1 h-6 w-6"
-                              onClick={() => setFormData(prev => ({ ...prev, imageUrl: '' }))}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                        <p className="text-[10px] text-muted-foreground italic">
-                          Upload to Cloudinary or paste a direct image link.
-                        </p>
                       </div>
                     </div>
                   </div>
