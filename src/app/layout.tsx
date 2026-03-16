@@ -4,6 +4,7 @@ import './globals.css';
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { Toaster } from "@/components/ui/toaster"
+import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
   title: 'GulayanFlow | Gemma\'s Gulayan Inventory',
@@ -23,15 +24,17 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased bg-background text-foreground">
-        <SidebarProvider>
-          <AppSidebar />
-          <SidebarInset>
-            <main className="p-4 md:p-8 lg:p-12 min-h-screen">
-              {children}
-            </main>
-          </SidebarInset>
-          <Toaster />
-        </SidebarProvider>
+        <FirebaseClientProvider>
+          <SidebarProvider>
+            <AppSidebar />
+            <SidebarInset>
+              <main className="p-4 md:p-8 lg:p-12 min-h-screen">
+                {children}
+              </main>
+            </SidebarInset>
+            <Toaster />
+          </SidebarProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );

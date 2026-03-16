@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,11 @@ import { ArrowUpRight, ArrowDownRight, Trash2, Filter } from 'lucide-react'
 
 export default function StockTrackingPage() {
   const [activeTab, setActiveTab] = useState('history')
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -68,7 +73,9 @@ export default function StockTrackingPage() {
                   const product = MOCK_PRODUCTS.find(p => p.id === t.productId)
                   return (
                     <TableRow key={t.id}>
-                      <TableCell className="text-xs">{new Date(t.date).toLocaleString()}</TableCell>
+                      <TableCell className="text-xs">
+                        {mounted ? new Date(t.date).toLocaleString() : ""}
+                      </TableCell>
                       <TableCell className="font-medium">{product?.name || 'Unknown'}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={`${

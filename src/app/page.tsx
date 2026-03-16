@@ -1,7 +1,7 @@
 
 "use client"
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -19,9 +19,14 @@ import {
   PieChart,
   Pie
 } from 'recharts'
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 
 export default function DashboardPage() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const totalProducts = MOCK_PRODUCTS.length
   const lowStockItems = MOCK_PRODUCTS.filter(p => p.status === 'low-stock').length
   const outOfStockItems = MOCK_PRODUCTS.filter(p => p.status === 'out-of-stock').length
@@ -187,7 +192,9 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <p className="font-medium">{product?.name || 'Unknown Product'}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(t.date).toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {mounted ? new Date(t.date).toLocaleString() : ""}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">

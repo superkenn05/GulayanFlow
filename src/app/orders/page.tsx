@@ -1,7 +1,7 @@
 
 "use client"
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -16,6 +16,12 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 export default function OrdersPage() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   return (
     <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -53,7 +59,7 @@ export default function OrdersPage() {
                   <TableCell className="font-mono text-xs">{order.id}</TableCell>
                   <TableCell className="font-medium">{order.customerName}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {new Date(order.date).toLocaleString()}
+                    {mounted ? new Date(order.date).toLocaleString() : ""}
                   </TableCell>
                   <TableCell className="font-bold text-primary">₱{order.total}</TableCell>
                   <TableCell>
