@@ -1,11 +1,11 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Search, Filter, Edit, Trash2, MoreHorizontal, Sparkles, Loader2 } from "lucide-react"
+import { Plus, Search, Filter, Edit, Trash2, MoreHorizontal, Sparkles, Loader2, Upload, Image as ImageIcon } from "lucide-react"
 import Image from 'next/image'
 import {
   DropdownMenu,
@@ -32,13 +32,15 @@ import { getNutritionalValues } from '@/ai/flows/nutritional-values-flow'
 import { toast } from '@/hooks/use-toast'
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase'
 import { collection, query, orderBy, doc, serverTimestamp } from 'firebase/firestore'
-import { addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates'
+import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates'
 
 export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [isAiLoading, setIsAiLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
   const [open, setOpen] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   
   const db = useFirestore()
   const { user } = useUser()
@@ -108,6 +110,56 @@ export default function InventoryPage() {
       setIsAiLoading(false)
     }
   }
+
+  const handleCloudinaryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+    if (!cloudName || !uploadPreset) {
+      toast({
+        title: "Cloudinary not configured",
+        description: "Please set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET environment variables.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    const uploadData = new FormData();
+    uploadData.append('file', file);
+    uploadData.append('upload_preset', uploadPreset);
+
+    try {
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        {
+          method: 'POST',
+          body: uploadData,
+        }
+      );
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      const data = await response.json();
+      setFormData(prev => ({ ...prev, imageUrl: data.secure_url }));
+      toast({
+        title: "Success",
+        description: "Image uploaded to Cloudinary successfully."
+      });
+    } catch (error) {
+      console.error('Cloudinary upload error:', error);
+      toast({
+        title: "Upload Failed",
+        description: "Could not upload image to Cloudinary. Check your configuration.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -350,15 +402,58 @@ export default function InventoryPage() {
 
                   <div className="space-y-4">
                     <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Media</h3>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="image" className="text-right">Image URL</Label>
-                      <Input 
-                        id="image" 
-                        className="col-span-3" 
-                        placeholder="https://..." 
-                        value={formData.imageUrl}
-                        onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
-                      />
+                    <div className="grid grid-cols-4 items-start gap-4">
+                      <Label className="text-right mt-2">Image</Label>
+                      <div className="col-span-3 space-y-3">
+                        <div className="flex gap-2">
+                          <Input 
+                            id="image" 
+                            className="flex-1" 
+                            placeholder="Image URL or upload..." 
+                            value={formData.imageUrl}
+                            onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
+                          />
+                          <Button 
+                            type="button" 
+                            variant="secondary" 
+                            size="icon" 
+                            className="shrink-0"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isUploading}
+                          >
+                            {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                        <input 
+                          type="file" 
+                          ref={fileInputRef} 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={handleCloudinaryUpload}
+                        />
+                        {formData.imageUrl && (
+                          <div className="relative h-32 w-full rounded-md overflow-hidden border">
+                            <Image 
+                              src={formData.imageUrl} 
+                              alt="Preview" 
+                              fill 
+                              className="object-cover"
+                            />
+                            <Button 
+                              type="button" 
+                              variant="destructive" 
+                              size="icon" 
+                              className="absolute top-1 right-1 h-6 w-6"
+                              onClick={() => setFormData(prev => ({ ...prev, imageUrl: '' }))}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                        <p className="text-[10px] text-muted-foreground italic">
+                          Upload to Cloudinary or paste a direct image link.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
