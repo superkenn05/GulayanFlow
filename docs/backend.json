@@ -1,0 +1,265 @@
+{
+  "entities": {
+    "Category": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Category",
+      "type": "object",
+      "description": "Represents a classification for products, such as 'Vegetables' or 'Fruits', to help organize inventory.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Category entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the category (e.g., 'Vegetables', 'Fruits', 'Nuts')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the category."
+        },
+        "iconUrl": {
+          "type": "string",
+          "description": "URL to an icon representing the category, typically from Material-UI or a custom image for visual representation.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Product": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Product",
+      "type": "object",
+      "description": "Represents a single product item available in Gemma's Gulayan, including its details, pricing, and current stock level.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Product entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the product (e.g., 'Organic Kale', 'Sweet Mango')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the product, including origin or characteristics."
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "Reference to Category. (Relationship: Category 1:N Product)"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL to the product's image for display in the inventory system and storefront.",
+          "format": "uri"
+        },
+        "pricePerUnit": {
+          "type": "number",
+          "description": "The selling price of the product per its defined unit of measure."
+        },
+        "unitOfMeasure": {
+          "type": "string",
+          "description": "The standard unit by which the product is measured and sold (e.g., 'kg', 'piece', 'bundle')."
+        },
+        "currentStockQuantity": {
+          "type": "number",
+          "description": "The current available quantity of the product in stock."
+        },
+        "lowStockThreshold": {
+          "type": "number",
+          "description": "The quantity level below which the product is considered 'low stock', triggering alerts."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the product was first added to the inventory system.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the product's information was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "categoryId",
+        "pricePerUnit",
+        "unitOfMeasure",
+        "currentStockQuantity",
+        "lowStockThreshold",
+        "createdAt"
+      ]
+    },
+    "StaffUser": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StaffUser",
+      "type": "object",
+      "description": "Represents a staff member of Gemma's Gulayan with access to the inventory management system, including their role and contact details.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StaffUser entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the staff member."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the staff member, used for identification. (Authentication handled externally).",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The assigned role of the staff member (e.g., 'Admin', 'Staff'), defining their access privileges within the system."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the staff user profile was created in the system.",
+          "format": "date-time"
+        },
+        "lastLogin": {
+          "type": "string",
+          "description": "Timestamp of the staff user's last successful login to the system.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "role",
+        "createdAt"
+      ]
+    },
+    "StockTransaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StockTransaction",
+      "type": "object",
+      "description": "Records every instance of product stock movement, including additions (stock-in), sales (stock-out), waste, or transfers.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StockTransaction entity."
+        },
+        "productId": {
+          "type": "string",
+          "description": "Reference to Product. (Relationship: Product 1:N StockTransaction)"
+        },
+        "staffUserId": {
+          "type": "string",
+          "description": "Reference to StaffUser who performed or recorded this stock transaction. (Relationship: StaffUser 1:N StockTransaction)"
+        },
+        "transactionType": {
+          "type": "string",
+          "description": "The type of stock movement, e.g., 'STOCK_IN', 'STOCK_OUT_SALE', 'STOCK_OUT_WASTE', 'STOCK_OUT_TRANSFER'."
+        },
+        "quantityChange": {
+          "type": "number",
+          "description": "The quantity of product involved in the transaction. Positive for stock additions, negative for stock reductions."
+        },
+        "transactionDate": {
+          "type": "string",
+          "description": "The exact date and time when the stock transaction occurred.",
+          "format": "date-time"
+        },
+        "reason": {
+          "type": "string",
+          "description": "An optional descriptive reason or note for the transaction, particularly useful for waste or transfer entries."
+        },
+        "unitCostAtTransaction": {
+          "type": "number",
+          "description": "The cost per unit of the product at the time this transaction occurred, essential for inventory valuation and profit analysis."
+        }
+      },
+      "required": [
+        "id",
+        "productId",
+        "staffUserId",
+        "transactionType",
+        "quantityChange",
+        "transactionDate",
+        "unitCostAtTransaction"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/staffUsers/{staffUserId}",
+        "definition": {
+          "entityName": "StaffUser",
+          "schema": {
+            "$ref": "#/backend/entities/StaffUser"
+          },
+          "description": "Stores individual staff user profiles, including their assigned role for DBAC (Database Access Control). Access is path-based; users can only manage their own profile. Includes denormalized 'role' field for authorization.",
+          "params": [
+            {
+              "name": "staffUserId",
+              "description": "The unique identifier of the staff member, corresponding to Firebase Authentication UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/categories/{categoryId}",
+        "definition": {
+          "entityName": "Category",
+          "schema": {
+            "$ref": "#/backend/entities/Category"
+          },
+          "description": "Manages product categories (e.g., 'Vegetables', 'Fruits'). This is a global, top-level collection accessible to all authorized staff for management and viewing. Security is role-based for staff members.",
+          "params": [
+            {
+              "name": "categoryId",
+              "description": "The unique identifier for a product category."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/products/{productId}",
+        "definition": {
+          "entityName": "Product",
+          "schema": {
+            "$ref": "#/backend/entities/Product"
+          },
+          "description": "Contains details for all inventory products, including stock levels and pricing. This is a global, top-level collection accessible to all authorized staff for management and viewing. Security is role-based for staff members.",
+          "params": [
+            {
+              "name": "productId",
+              "description": "The unique identifier for a product."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/stockTransactions/{transactionId}",
+        "definition": {
+          "entityName": "StockTransaction",
+          "schema": {
+            "$ref": "#/backend/entities/StockTransaction"
+          },
+          "description": "Records all stock movements (in, out, waste). This is a global, top-level collection accessible to all authorized staff for logging and viewing history. Includes 'productId' and 'staffUserId' as direct references for query efficiency and clear data relationships, without creating hierarchical authorization dependencies. Security is role-based for staff members.",
+          "params": [
+            {
+              "name": "transactionId",
+              "description": "The unique identifier for a stock transaction record."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure for GulayanFlow is designed with a flat, top-level collection approach to maximize Authorization Independence and ensure efficient Query-Aware Permissions (QAPs). Each core entity (StaffUser, Category, Product, StockTransaction) resides in its own root-level collection, preventing deeply nested dependencies that often lead to complex and brittle security rules. The authorization model is based on Database Access Control (DBAC), where staff roles are explicitly stored in the 'staffUsers' collection.\n\n**Authorization Independence:** All collections are top-level. This explicitly avoids scenarios where a subcollection's access relies on `get()` operations on parent documents for authorization, thereby supporting atomic writes and simplifying transaction management. For instance, a `StockTransaction` document explicitly includes `productId` and `staffUserId` as direct references. While these link to other entities, the authorization for creating or accessing a `StockTransaction` document does not *depend* on a `get()` call to the related `Product` or `StaffUser` document within the security rule. Instead, the rules will check the *requesting user's* role, which is derived from `get(/staffUsers/request.auth.uid)`. This ensures that each document's authorization can be evaluated independently without complex, chain-of-custody checks.\n\n**Query-Aware Permissions (QAPs):**\n*   **`/staffUsers/{staffUserId}`:** This collection is secured using path-based ownership. A staff member (`request.auth.uid`) can only read and update their *own* profile (`/staffUsers/request.auth.uid`). This inherently makes `list` operations secure for individual users, as they can only query their own specific document. An 'Admin' role would be required to list all staff profiles, which can be easily enforced by checking the admin's role in the security rules.\n*   **`/categories/{categoryId}`, `/products/{productId}`, `/stockTransactions/{transactionId}`:** These collections hold shared operational data. Their security posture is homogeneous: all documents within these collections are accessible (read/write/list) to *any* authenticated staff member with the appropriate role (e.g., 'Admin' or 'Staff'). This is achieved by having a simple, overarching rule that checks the `role` field of `get(/staffUsers/request.auth.uid)`. Because access is based on the *requesting user's role* rather than specific document content or hierarchical relationships, `list` operations are inherently secure and efficient. The client can query all products or all transactions, and Firestore security rules will permit or deny the *entire request* based on the user's role, not by filtering individual documents.\n\nThis design prioritizes clarity, debuggability, and scalability by centralizing role management and ensuring that authorization logic for data access is explicit and structurally independent."
+  }
+}
