@@ -28,6 +28,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'share.google',
+        port: '',
+        pathname: '/**',
+      },
     ],
   },
 };
