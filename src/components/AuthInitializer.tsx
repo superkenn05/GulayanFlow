@@ -39,10 +39,8 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
         let userDoc;
         
         try {
-          // Attempt to get the user document to check for existence
           userDoc = await getDoc(userDocRef);
         } catch (e: any) {
-          // Surface permission error if critical
           const permissionError = new FirestorePermissionError({
             path: userDocRef.path,
             operation: 'get',
@@ -54,8 +52,8 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
         if (!userDoc.exists()) {
           const staffData = {
             id: currentUser.uid,
-            name: 'Gemma (Admin)',
-            email: 'gemma@gulayan.ph',
+            name: 'Bakit sya lang ang admin?',
+            email: 'admin@gulayan.ph',
             role: 'Admin',
             createdAt: serverTimestamp(),
             lastLogin: serverTimestamp(),
@@ -73,7 +71,6 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
             return;
           }
         } else {
-          // Update last login timestamp quietly
           setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true }).catch(() => {});
         }
 
@@ -89,7 +86,6 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
             await batch.commit();
           }
         } catch (e) {
-          // Seeding failure is non-critical if it's a permission issue (e.g., user doc not yet indexed)
           console.warn("Could not seed categories during init:", e);
         }
 

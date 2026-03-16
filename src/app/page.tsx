@@ -16,12 +16,16 @@ import {
   PieChart,
   Pie
 } from 'recharts'
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase'
-import { collection, query, orderBy, limit } from 'firebase/firestore'
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
+import { collection, query, orderBy, limit, doc } from 'firebase/firestore'
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
   const db = useFirestore()
+  const { user } = useUser()
+
+  const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
+  const { data: profile } = useDoc(staffRef)
 
   const productsQuery = useMemoFirebase(() => query(collection(db, 'products')), [db])
   const transactionsQuery = useMemoFirebase(() => query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(5)), [db])
@@ -58,7 +62,7 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back, Gemma! Here's what's happening today.</p>
+          <p className="text-muted-foreground">Welcome back{profile?.name ? `, ${profile.name}` : ''}! Here's what's happening today.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline">Print Reports</Button>
