@@ -35,3 +35,30 @@ export type Staff = {
   role: 'admin' | 'staff';
   email: string;
 };
+
+export type Supplier = {
+  id: string;
+  name: string;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  category: string;
+  status: 'active' | 'inactive';
+};
+
+export type OrderItem = {
+  productId: string;
+  productName: string;
+  quantity: number;
+  price: number;
+};
+
+export type Order = {
+  id: string;
+  customerName: string;
+  items: OrderItem[];
+  total: number;
+  status: 'completed' | 'pending' | 'cancelled';
+  date: string;
+  paymentMethod: 'cash' | 'gcash' | 'card';
+};

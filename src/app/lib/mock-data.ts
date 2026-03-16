@@ -1,5 +1,5 @@
 
-import { Product, Category, Transaction, Staff } from '../types';
+import { Product, Category, Transaction, Staff, Supplier, Order } from '../types';
 
 export const MOCK_CATEGORIES: Category[] = [
   { id: 'cat-1', name: 'Vegetables', icon: 'LeafyGreen' },
@@ -101,3 +101,59 @@ export const MOCK_STAFF: Staff = {
   role: 'admin',
   email: 'gemma@gulayan.ph',
 };
+
+export const MOCK_SUPPLIERS: Supplier[] = [
+  {
+    id: 'sup-1',
+    name: 'Benguet Farmers Coop',
+    contactPerson: 'Jose Rizal',
+    phone: '0917-123-4567',
+    email: 'jose@benguetfarmers.ph',
+    category: 'Vegetables',
+    status: 'active',
+  },
+  {
+    id: 'sup-2',
+    name: 'Davao Fruit Hub',
+    contactPerson: 'Maria Clara',
+    phone: '0918-987-6543',
+    email: 'maria@davaofruits.com',
+    category: 'Fruits',
+    status: 'active',
+  },
+  {
+    id: 'sup-3',
+    name: 'Manila Spice Wholesalers',
+    contactPerson: 'Andres Bonifacio',
+    phone: '0919-555-0000',
+    email: 'andres@spicemanila.com',
+    category: 'Spices',
+    status: 'inactive',
+  },
+];
+
+export const MOCK_ORDERS: Order[] = [
+  {
+    id: 'ord-1001',
+    customerName: 'Juan Dela Cruz',
+    items: [
+      { productId: 'p-1', productName: 'Carrots', quantity: 2, price: 80 },
+      { productId: 'p-3', productName: 'Baguio Cabbage', quantity: 1, price: 60 },
+    ],
+    total: 220,
+    status: 'completed',
+    date: new Date(Date.now() - 3600000).toISOString(),
+    paymentMethod: 'cash',
+  },
+  {
+    id: 'ord-1002',
+    customerName: 'Liza Soberano',
+    items: [
+      { productId: 'p-5', productName: 'Garlic', quantity: 0.5, price: 200 },
+    ],
+    total: 100,
+    status: 'pending',
+    date: new Date().toISOString(),
+    paymentMethod: 'gcash',
+  },
+];

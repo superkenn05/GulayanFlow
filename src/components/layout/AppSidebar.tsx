@@ -2,7 +2,17 @@
 "use client"
 
 import * as React from "react"
-import { LayoutDashboard, Package, History, Tags, BrainCircuit, User, Menu } from "lucide-react"
+import { 
+  LayoutDashboard, 
+  Package, 
+  History, 
+  Tags, 
+  BrainCircuit, 
+  User, 
+  ShoppingBasket, 
+  Truck, 
+  FileText 
+} from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -16,16 +26,17 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
 } from "@/components/ui/sidebar"
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Inventory", url: "/inventory", icon: Package },
+  { title: "Orders", url: "/orders", icon: ShoppingBasket },
   { title: "Stock Tracking", url: "/stock", icon: History },
   { title: "Categories", url: "/categories", icon: Tags },
+  { title: "Suppliers", url: "/suppliers", icon: Truck },
   { title: "AI Insights", url: "/insights", icon: BrainCircuit },
+  { title: "Reports", url: "/reports", icon: FileText },
   { title: "Profile", url: "/profile", icon: User },
 ]
 
