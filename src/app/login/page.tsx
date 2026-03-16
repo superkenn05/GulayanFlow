@@ -20,8 +20,7 @@ import {
   getDocs, 
   doc, 
   writeBatch,
-  serverTimestamp,
-  getDoc
+  serverTimestamp
 } from 'firebase/firestore'
 import { toast } from '@/hooks/use-toast'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -49,19 +48,43 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      // 1. Try standard login
+      // 1. Try standard login first
       await signInWithEmailAndPassword(auth, email, password)
       toast({
         title: "Welcome back!",
-        description: "Successfully signed in to GulayanFlow.",
+        description: "Successfully signed in.",
       })
       router.push('/')
     } catch (err: any) {
-      // 2. If login fails, check for a "placeholder" bridge
+      // 2. Handle Activation (Bridge)
       const isCredentialError = err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password';
       
       if (isCredentialError) {
         try {
+          // Special case for the requested Superadmin credentials
+          if (email === 'markken@gulayan.ph' && password === 'admin123456789') {
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+            await updateProfile(userCredential.user, { displayName: 'Mark Ken (Superadmin)' })
+            
+            const batch = writeBatch(db)
+            const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
+            batch.set(newUserRef, {
+              id: userCredential.user.uid,
+              name: 'Mark Ken (Superadmin)',
+              email: email,
+              role: 'Superadmin',
+              status: 'active',
+              createdAt: serverTimestamp(),
+              lastLogin: serverTimestamp()
+            })
+            await batch.commit()
+            
+            toast({ title: "Superadmin Activated", description: "Welcome, Mark Ken!" })
+            router.push('/')
+            return
+          }
+
+          // General Staff Activation
           const staffQuery = query(collection(db, 'staffUsers'), where('email', '==', email))
           const querySnapshot = await getDocs(staffQuery)
 
@@ -69,19 +92,16 @@ export default function LoginPage() {
             const staffDoc = querySnapshot.docs[0]
             const staffData = staffDoc.data()
 
-            // Verify the placeholder password stored by Admin
             if (staffData.password === password) {
               if (password.length < 6) {
-                setError("Password must be at least 6 characters for activation.")
+                setError("Password must be at least 6 characters.")
                 setIsLoading(false)
                 return
               }
 
-              // Create the real Auth account
               const userCredential = await createUserWithEmailAndPassword(auth, email, password)
               await updateProfile(userCredential.user, { displayName: staffData.name })
 
-              // Migrate/Link the database document to the new UID
               const batch = writeBatch(db)
               const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
               
@@ -93,27 +113,25 @@ export default function LoginPage() {
                 updatedAt: serverTimestamp()
               })
 
-              // If the placeholder ID was different (e.g., email-based), delete it
               if (staffDoc.id !== userCredential.user.uid) {
                 batch.delete(doc(db, 'staffUsers', staffDoc.id))
               }
 
               await batch.commit()
-
-              toast({
-                title: "Account Activated",
-                description: `Welcome, ${staffData.name}! Your account is now active.`,
-              })
+              toast({ title: "Account Activated", description: `Welcome, ${staffData.name}!` })
               router.push('/')
               return
             }
           }
-        } catch (dbErr) {
-          console.error("Migration error:", dbErr)
+        } catch (dbErr: any) {
+          console.error("Activation error:", dbErr)
+          if (dbErr.code === 'auth/email-already-in-use') {
+            setError("This email is already registered. Please check your password.")
+          }
         }
       }
 
-      setError("Invalid email or password. Please check your credentials.")
+      setError("Invalid email or password.")
       toast({
         variant: "destructive",
         title: "Login Failed",
@@ -126,16 +144,16 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md shadow-xl border-none animate-in fade-in zoom-in-95 duration-500">
+      <Card className="w-full max-w-md shadow-xl border-none">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
+            <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-primary-foreground">
               <Leaf className="h-8 w-8" />
             </div>
           </div>
           <CardTitle className="text-2xl font-headline font-bold">GulayanFlow</CardTitle>
           <CardDescription>
-            Enter your credentials to access the inventory system.
+            Enter your credentials to manage Gemma's Gulayan.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>
@@ -144,9 +162,7 @@ export default function LoginPage() {
               <Alert variant="destructive" className="py-3">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle className="text-xs font-bold uppercase">Auth Error</AlertTitle>
-                <AlertDescription className="text-xs">
-                  {error}
-                </AlertDescription>
+                <AlertDescription className="text-xs">{error}</AlertDescription>
               </Alert>
             )}
             <div className="space-y-2">
@@ -156,7 +172,7 @@ export default function LoginPage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="name@gulayan.ph" 
+                  placeholder="markken@gulayan.ph" 
                   className="pl-10 h-11"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -165,9 +181,7 @@ export default function LoginPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-              </div>
+              <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
@@ -182,12 +196,12 @@ export default function LoginPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button className="w-full h-11 text-base font-bold shadow-lg shadow-primary/10" type="submit" disabled={isLoading}>
+            <Button className="w-full h-11 text-base font-bold" type="submit" disabled={isLoading}>
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Sign In
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Authorized staff only. Contact your Admin for account setup.
+              Authorized personnel only. Contact Superadmin for setup.
             </p>
           </CardFooter>
         </form>

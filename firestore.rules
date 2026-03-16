@@ -5,7 +5,7 @@ service cloud.firestore {
     /**
      * GEMMA'S GULAYAN - SECURITY RULES
      * 
-     * Robust role-based access control.
+     * Hierarchy: Superadmin > Admin > Staff
      */
 
     // --- Helper Functions ---
@@ -14,36 +14,36 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function getStaffDoc() {
-      return get(/databases/$(database)/documents/staffUsers/$(request.auth.uid));
-    }
-
     function getStaffRole() {
       let path = /databases/$(database)/documents/staffUsers/$(request.auth.uid);
       return exists(path) ? get(path).data.role : 'Guest';
     }
 
+    function isSuperadmin() {
+      return isSignedIn() && (getStaffRole() == 'Superadmin' || request.auth.token.email == 'markken@gulayan.ph');
+    }
+
     function isAdmin() {
-      return isSignedIn() && getStaffRole() == 'Admin';
+      let role = getStaffRole();
+      return isSignedIn() && (role == 'Admin' || role == 'Superadmin' || request.auth.token.email == 'markken@gulayan.ph');
     }
 
     function isStaff() {
       let role = getStaffRole();
-      return isSignedIn() && (role == 'Staff' || role == 'Admin');
+      return isSignedIn() && (role == 'Staff' || role == 'Admin' || role == 'Superadmin' || request.auth.token.email == 'markken@gulayan.ph');
     }
 
     // --- Collection Rules ---
 
     match /staffUsers/{staffUserId} {
-      // Allow users to manage their own profiles
-      allow get, create, update: if isSignedIn() && request.auth.uid == staffUserId;
+      // Users can always read/update their own basic profile
+      allow get, update: if isSignedIn() && request.auth.uid == staffUserId;
       
-      // Allow searching for placeholder docs during activation (checked by email)
-      allow list: if isSignedIn();
-      allow get: if isSignedIn();
-
-      // Admins can manage all staff profiles
-      allow write: if isAdmin();
+      // Superadmins can manage all users (Admins and Staff)
+      allow read, write: if isSuperadmin();
+      
+      // Admins can view the directory but not delete/promote other admins
+      allow list, get: if isAdmin();
     }
 
     match /categories/{categoryId} {

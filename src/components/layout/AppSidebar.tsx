@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -14,6 +13,7 @@ import {
   FileText,
   CreditCard,
   ShieldCheck,
+  Shield,
   Leaf,
   Loader2
 } from "lucide-react"
@@ -56,18 +56,18 @@ export function AppSidebar() {
   const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
   const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
 
-  // Hide sidebar if unauthenticated or on login page
   if (pathname === '/login' || (!user || user.isAnonymous)) {
     return null
   }
 
   const userRole = profile?.role || 'Staff'
+  const isAdmin = userRole === 'Admin' || userRole === 'Superadmin'
 
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="p-4 border-b">
         <Link href="/" className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground shadow-sm shadow-primary/20 shrink-0">
+          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-primary-foreground shrink-0">
             <Leaf className="h-6 w-6" />
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden overflow-hidden">
@@ -85,8 +85,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
-                // Filter admin-only items
-                if (item.adminOnly && userRole !== 'Admin') return null
+                if (item.adminOnly && !isAdmin) return null
 
                 return (
                   <SidebarMenuItem key={item.title}>

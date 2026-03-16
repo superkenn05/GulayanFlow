@@ -1,13 +1,9 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
-import { signInAnonymously } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 const DEFAULT_CATEGORIES = [
   { id: 'cat-veg', name: 'Vegetables', description: 'Fresh leafy greens and more', icon: 'LeafyGreen' },
@@ -28,70 +24,51 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
       if (!auth || !db || isUserLoading) return;
 
       try {
-        let currentUser = user;
-        
-        // If not logged in, we stay on the login page (or use anonymous for first-run probing)
-        if (!currentUser) {
-          // Note: Anonymous is only used if absolutely necessary for initial seeding
-          // Most apps will just wait for actual sign-in.
+        if (!user) {
           setIsInitializing(false);
           return;
         }
 
-        // 1. Ensure Staff Profile exists at the current UID
-        const userDocRef = doc(db, 'staffUsers', currentUser.uid);
-        let userDoc;
+        const userDocRef = doc(db, 'staffUsers', user.uid);
+        const userDoc = await getDoc(userDocRef);
         
-        try {
-          userDoc = await getDoc(userDocRef);
-        } catch (e: any) {
-          // If we get a permission error here, it might be because the user is anonymous
-          // and hasn't logged in yet. That's fine.
-          setIsInitializing(false);
-          return;
-        }
-        
-        // If profile doesn't exist AND it's a real user, create a default profile
-        // If it's an anonymous user, we don't necessarily want to create a staff record
-        if (!userDoc.exists() && !currentUser.isAnonymous) {
+        // Forced Superadmin check
+        const isSuperadminEmail = user.email === 'markken@gulayan.ph';
+
+        if (!userDoc.exists()) {
           const staffData = {
-            id: currentUser.uid,
-            name: currentUser.displayName || 'Staff Member',
-            email: currentUser.email || 'staff@gulayan.ph',
-            role: 'Staff',
+            id: user.uid,
+            name: isSuperadminEmail ? 'Mark Ken (Superadmin)' : (user.displayName || 'Staff Member'),
+            email: user.email,
+            role: isSuperadminEmail ? 'Superadmin' : 'Staff',
             createdAt: serverTimestamp(),
             lastLogin: serverTimestamp(),
             status: 'active'
           };
-
-          try {
-            await setDoc(userDocRef, staffData);
-          } catch (e: any) {
-            console.warn("Could not create initial staff profile:", e);
+          await setDoc(userDocRef, staffData);
+        } else {
+          // Update last login and ensure role is correct for the superadmin email
+          const updates: any = { lastLogin: serverTimestamp() };
+          if (isSuperadminEmail && userDoc.data()?.role !== 'Superadmin') {
+            updates.role = 'Superadmin';
           }
-        } else if (userDoc.exists()) {
-          // Update last login
-          setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true }).catch(() => {});
+          await setDoc(userDocRef, updates, { merge: true });
         }
 
-        // 2. Seed Default Categories if empty (Global data, only needs to happen once)
-        try {
-          const categoriesSnapshot = await getDocs(collection(db, 'categories'));
-          if (categoriesSnapshot.empty) {
-            const batch = writeBatch(db);
-            DEFAULT_CATEGORIES.forEach((cat) => {
-              const ref = doc(db, 'categories', cat.id);
-              batch.set(ref, cat);
-            });
-            await batch.commit();
-          }
-        } catch (e) {
-          console.warn("Could not seed categories during init:", e);
+        // Seed Categories if empty
+        const categoriesSnapshot = await getDocs(collection(db, 'categories'));
+        if (categoriesSnapshot.empty) {
+          const batch = writeBatch(db);
+          DEFAULT_CATEGORIES.forEach((cat) => {
+            const ref = doc(db, 'categories', cat.id);
+            batch.set(ref, cat);
+          });
+          await batch.commit();
         }
 
         setIsInitializing(false);
       } catch (error) {
-        console.error("Critical initialization failure:", error);
+        console.error("Initialization failure:", error);
         setIsInitializing(false);
       }
     }
@@ -103,7 +80,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground animate-pulse">Initializing Gemma's Gulayan...</p>
+        <p className="text-sm text-muted-foreground animate-pulse">Initializing GulayanFlow...</p>
       </div>
     );
   }
