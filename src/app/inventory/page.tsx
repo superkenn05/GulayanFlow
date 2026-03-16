@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Search, Filter, Edit, Trash2, MoreHorizontal, Sparkles, Loader2, Upload, Image as ImageIcon } from "lucide-react"
-import Image from 'next/image'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +14,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu"
 import {
   Dialog,
@@ -33,7 +33,7 @@ import { getNutritionalValues } from '@/ai/flows/nutritional-values-flow'
 import { toast } from '@/hooks/use-toast'
 import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase'
 import { collection, query, orderBy, doc, serverTimestamp } from 'firebase/firestore'
-import { deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates'
+import { deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates'
 import { cn } from '@/lib/utils'
 
 export default function InventoryPage() {
@@ -42,6 +42,7 @@ export default function InventoryPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [open, setOpen] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<any>(null)
   const [localPreview, setLocalPreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
@@ -80,6 +81,25 @@ export default function InventoryPage() {
   const filteredProducts = products?.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
   ) || []
+
+  const handleEditClick = (product: any) => {
+    setEditingProduct(product)
+    setFormData({
+      name: product.name || '',
+      description: product.description || '',
+      categoryId: product.categoryId || '',
+      pricePerUnit: product.pricePerUnit?.toString() || '',
+      unitOfMeasure: product.unitOfMeasure || 'kg',
+      currentStockQuantity: product.currentStockQuantity?.toString() || '',
+      lowStockThreshold: product.lowStockThreshold?.toString() || '10',
+      imageUrl: product.imageUrl || '',
+      calories: product.nutritionalValues?.calories || '',
+      protein: product.nutritionalValues?.protein || '',
+      carbs: product.nutritionalValues?.carbs || '',
+      fat: product.nutritionalValues?.fat || ''
+    })
+    setOpen(true)
+  }
 
   const handleAutofillNutrition = async () => {
     if (!formData.name) {
@@ -125,14 +145,11 @@ export default function InventoryPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Show local preview immediately
     if (localPreview) URL.revokeObjectURL(localPreview);
     const objectUrl = URL.createObjectURL(file);
     setLocalPreview(objectUrl);
 
-    // Use the Cloud Name provided by the user
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dzytzdamb';
-    // Use the preset 'firebase_upload'
     const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'firebase_upload';
 
     setIsUploading(true);
@@ -183,14 +200,15 @@ export default function InventoryPage() {
 
     setIsSaving(true)
     try {
-      const productRef = doc(collection(db, 'products'))
       const productData = {
-        id: productRef.id,
-        ...formData,
+        name: formData.name,
+        description: formData.description,
+        categoryId: formData.categoryId,
+        imageUrl: formData.imageUrl,
         pricePerUnit: parseFloat(formData.pricePerUnit),
+        unitOfMeasure: formData.unitOfMeasure,
         currentStockQuantity: parseFloat(formData.currentStockQuantity || '0'),
-        lowStockThreshold: parseFloat(formData.lowStockThreshold),
-        createdAt: serverTimestamp(),
+        lowStockThreshold: parseFloat(formData.lowStockThreshold || '10'),
         updatedAt: serverTimestamp(),
         nutritionalValues: {
           calories: formData.calories,
@@ -200,21 +218,36 @@ export default function InventoryPage() {
         }
       }
 
-      setDocumentNonBlocking(productRef, productData, { merge: true })
+      if (editingProduct) {
+        updateDocumentNonBlocking(doc(db, 'products', editingProduct.id), productData)
+        toast({ title: "Updated", description: `${formData.name} information updated.` })
+      } else {
+        const productRef = doc(collection(db, 'products'))
+        setDocumentNonBlocking(productRef, {
+          ...productData,
+          id: productRef.id,
+          createdAt: serverTimestamp()
+        }, { merge: true })
+        toast({ title: "Success", description: `${formData.name} added to inventory.` })
+      }
       
-      toast({ title: "Success", description: `${formData.name} added to inventory.` })
       setOpen(false)
-      setLocalPreview(null)
-      setFormData({
-        name: '', description: '', categoryId: '', pricePerUnit: '', unitOfMeasure: 'kg',
-        currentStockQuantity: '', lowStockThreshold: '10', imageUrl: '',
-        calories: '', protein: '', carbs: '', fat: ''
-      })
+      resetForm()
     } catch (error) {
       toast({ title: "Error", description: "Could not save product.", variant: "destructive" })
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const resetForm = () => {
+    setEditingProduct(null)
+    setLocalPreview(null)
+    setFormData({
+      name: '', description: '', categoryId: '', pricePerUnit: '', unitOfMeasure: 'kg',
+      currentStockQuantity: '', lowStockThreshold: '10', imageUrl: '',
+      calories: '', protein: '', carbs: '', fat: ''
+    })
   }
 
   const handleDeleteProduct = (id: string, name: string) => {
@@ -226,11 +259,10 @@ export default function InventoryPage() {
     const transactionRef = doc(collection(db, 'stockTransactions'))
     const quantityChange = type === 'STOCK_IN' ? quantity : -quantity
     
-    // Log Transaction
     setDocumentNonBlocking(transactionRef, {
       id: transactionRef.id,
       productId: product.id,
-      staffUserId: user?.uid,
+      staffUserId: user?.uid || 'system',
       transactionType: type,
       quantityChange,
       transactionDate: serverTimestamp(),
@@ -238,13 +270,12 @@ export default function InventoryPage() {
       reason: type === 'STOCK_OUT_WASTE' ? 'Manual waste entry' : 'Manual stock-in'
     }, { merge: true })
 
-    // Update Product Stock
-    setDocumentNonBlocking(doc(db, 'products', product.id), {
-      currentStockQuantity: product.currentStockQuantity + quantityChange,
+    updateDocumentNonBlocking(doc(db, 'products', product.id), {
+      currentStockQuantity: (product.currentStockQuantity || 0) + quantityChange,
       updatedAt: serverTimestamp()
-    }, { merge: true })
+    })
 
-    toast({ title: "Stock Updated", description: `${product.name} stock adjusted by ${quantityChange} ${product.unitOfMeasure}.` })
+    toast({ title: "Stock Updated", description: `${product.name} stock adjusted.` })
   }
 
   return (
@@ -256,7 +287,7 @@ export default function InventoryPage() {
         </div>
         <Dialog open={open} onOpenChange={(val) => {
           setOpen(val)
-          if (!val) setLocalPreview(null)
+          if (!val) resetForm()
         }}>
           <DialogTrigger asChild>
             <Button className="gap-2">
@@ -266,9 +297,9 @@ export default function InventoryPage() {
           <DialogContent className="sm:max-w-[600px]">
             <form onSubmit={handleSaveProduct}>
               <DialogHeader>
-                <DialogTitle>Add New Product</DialogTitle>
+                <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
                 <DialogDescription>
-                  Fill in the details for the new inventory item.
+                  {editingProduct ? 'Modify the details of the existing product.' : 'Fill in the details for the new inventory item.'}
                 </DialogDescription>
               </DialogHeader>
               <ScrollArea className="max-h-[70vh] pr-4">
@@ -332,43 +363,19 @@ export default function InventoryPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid grid-cols-4 items-center gap-2">
                         <Label htmlFor="calories" className="text-right text-xs">Calories</Label>
-                        <Input 
-                          id="calories" 
-                          className="col-span-3" 
-                          placeholder="18kcal" 
-                          value={formData.calories}
-                          onChange={(e) => setFormData(prev => ({ ...prev, calories: e.target.value }))}
-                        />
+                        <Input id="calories" className="col-span-3" placeholder="18kcal" value={formData.calories} onChange={(e) => setFormData(prev => ({ ...prev, calories: e.target.value }))} />
                       </div>
                       <div className="grid grid-cols-4 items-center gap-2">
                         <Label htmlFor="protein" className="text-right text-xs">Protein</Label>
-                        <Input 
-                          id="protein" 
-                          className="col-span-3" 
-                          placeholder="0.9g" 
-                          value={formData.protein}
-                          onChange={(e) => setFormData(prev => ({ ...prev, protein: e.target.value }))}
-                        />
+                        <Input id="protein" className="col-span-3" placeholder="0.9g" value={formData.protein} onChange={(e) => setFormData(prev => ({ ...prev, protein: e.target.value }))} />
                       </div>
                       <div className="grid grid-cols-4 items-center gap-2">
                         <Label htmlFor="carbs" className="text-right text-xs">Carbs</Label>
-                        <Input 
-                          id="carbs" 
-                          className="col-span-3" 
-                          placeholder="3.9g" 
-                          value={formData.carbs}
-                          onChange={(e) => setFormData(prev => ({ ...prev, carbs: e.target.value }))}
-                        />
+                        <Input id="carbs" className="col-span-3" placeholder="3.9g" value={formData.carbs} onChange={(e) => setFormData(prev => ({ ...prev, carbs: e.target.value }))} />
                       </div>
                       <div className="grid grid-cols-4 items-center gap-2">
                         <Label htmlFor="fat" className="text-right text-xs">Fat</Label>
-                        <Input 
-                          id="fat" 
-                          className="col-span-3" 
-                          placeholder="0.2g" 
-                          value={formData.fat}
-                          onChange={(e) => setFormData(prev => ({ ...prev, fat: e.target.value }))}
-                        />
+                        <Input id="fat" className="col-span-3" placeholder="0.2g" value={formData.fat} onChange={(e) => setFormData(prev => ({ ...prev, fat: e.target.value }))} />
                       </div>
                     </div>
                   </div>
@@ -377,22 +384,11 @@ export default function InventoryPage() {
                     <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Pricing & Stock</h3>
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="price" className="text-right">Price (₱)</Label>
-                      <Input 
-                        id="price" 
-                        type="number" 
-                        className="col-span-3" 
-                        placeholder="45.00" 
-                        required
-                        value={formData.pricePerUnit}
-                        onChange={(e) => setFormData(prev => ({ ...prev, pricePerUnit: e.target.value }))}
-                      />
+                      <Input id="price" type="number" className="col-span-3" placeholder="45.00" required value={formData.pricePerUnit} onChange={(e) => setFormData(prev => ({ ...prev, pricePerUnit: e.target.value }))} />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="unit" className="text-right">Unit</Label>
-                      <Select 
-                        value={formData.unitOfMeasure} 
-                        onValueChange={(val) => setFormData(prev => ({ ...prev, unitOfMeasure: val }))}
-                      >
+                      <Select value={formData.unitOfMeasure} onValueChange={(val) => setFormData(prev => ({ ...prev, unitOfMeasure: val }))}>
                         <SelectTrigger className="col-span-3">
                           <SelectValue placeholder="Select unit" />
                         </SelectTrigger>
@@ -405,15 +401,8 @@ export default function InventoryPage() {
                       </Select>
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="stock" className="text-right">Initial Stock</Label>
-                      <Input 
-                        id="stock" 
-                        type="number" 
-                        className="col-span-3" 
-                        placeholder="100" 
-                        value={formData.currentStockQuantity}
-                        onChange={(e) => setFormData(prev => ({ ...prev, currentStockQuantity: e.target.value }))}
-                      />
+                      <Label htmlFor="stock" className="text-right">Stock Level</Label>
+                      <Input id="stock" type="number" className="col-span-3" placeholder="100" value={formData.currentStockQuantity} onChange={(e) => setFormData(prev => ({ ...prev, currentStockQuantity: e.target.value }))} />
                     </div>
                   </div>
 
@@ -431,35 +420,17 @@ export default function InventoryPage() {
                         >
                           {(formData.imageUrl || localPreview) ? (
                             <div className="relative h-full w-full">
-                              <img 
-                                src={formData.imageUrl || localPreview!} 
-                                alt="Preview" 
-                                className="h-full w-full object-cover"
-                                onError={(e) => {
-                                  console.error("Image failed to load:", e.currentTarget.src);
-                                }}
-                              />
-                              
+                              <img src={localPreview || formData.imageUrl} alt="Preview" className="h-full w-full object-cover" />
                               {isUploading && (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/30 backdrop-blur-[2px]">
                                   <Loader2 className="h-8 w-8 animate-spin text-white" />
                                   <span className="text-xs text-white font-bold bg-black/40 px-2 py-1 rounded">Uploading...</span>
                                 </div>
                               )}
-
-                              {!isUploading && (
-                                <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                                  <Button type="button" variant="secondary" size="sm" className="gap-2">
-                                    <Upload className="h-4 w-4" /> Change Image
-                                  </Button>
-                                </div>
-                              )}
                             </div>
                           ) : (
                             <div className="flex flex-col items-center gap-2">
-                              <div className="p-3 bg-primary/10 rounded-full">
-                                <ImageIcon className="h-6 w-6 text-primary" />
-                              </div>
+                              <div className="p-3 bg-primary/10 rounded-full"><ImageIcon className="h-6 w-6 text-primary" /></div>
                               <div className="text-center">
                                 <p className="text-sm font-medium">Click to upload product image</p>
                                 <p className="text-xs text-muted-foreground">Or drag and drop PNG, JPG</p>
@@ -467,14 +438,7 @@ export default function InventoryPage() {
                             </div>
                           )}
                         </div>
-                        
-                        <input 
-                          type="file" 
-                          ref={fileInputRef} 
-                          className="hidden" 
-                          accept="image/*"
-                          onChange={handleCloudinaryUpload}
-                        />
+                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleCloudinaryUpload} />
                       </div>
                     </div>
                   </div>
@@ -483,7 +447,7 @@ export default function InventoryPage() {
               <DialogFooter className="mt-4">
                 <Button type="submit" className="w-full" disabled={isSaving || isUploading}>
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Save Product
+                  {editingProduct ? 'Update Product' : 'Save Product'}
                 </Button>
               </DialogFooter>
             </form>
@@ -494,43 +458,26 @@ export default function InventoryPage() {
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search products..."
-            className="pl-10"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <Input placeholder="Search products..." className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
-        <Button variant="outline" className="gap-2">
-          <Filter className="h-4 w-4" /> Filter
-        </Button>
+        <Button variant="outline" className="gap-2"><Filter className="h-4 w-4" /> Filter</Button>
       </div>
 
       {productsLoading ? (
-        <div className="flex justify-center py-20">
-          <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-        </div>
+        <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" /></div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredProducts.map((product) => {
             const category = categories?.find(c => c.id === product.categoryId)
-            const isLowStock = product.currentStockQuantity <= product.lowStockThreshold
+            const isLowStock = product.currentStockQuantity <= (product.lowStockThreshold || 10)
             const isOutOfStock = product.currentStockQuantity <= 0
 
             return (
               <Card key={product.id} className="overflow-hidden group hover:shadow-lg transition-all border-none bg-white shadow-sm ring-1 ring-border">
                 <div className="relative h-48 w-full overflow-hidden bg-muted">
-                  <img
-                    src={product.imageUrl || 'https://picsum.photos/seed/produce/400/300'}
-                    alt={product.name}
-                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                  />
+                  <img src={product.imageUrl || 'https://picsum.photos/seed/produce/400/300'} alt={product.name} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
                   <div className="absolute top-2 right-2">
-                    <Badge className={`${
-                      isOutOfStock ? 'bg-red-500' :
-                      isLowStock ? 'bg-orange-500' :
-                      'bg-green-500'
-                    } text-white border-none shadow-sm`}>
+                    <Badge className={`${isOutOfStock ? 'bg-red-500' : isLowStock ? 'bg-orange-500' : 'bg-green-500'} text-white border-none shadow-sm`}>
                       {isOutOfStock ? 'OUT OF STOCK' : isLowStock ? 'LOW STOCK' : 'IN STOCK'}
                     </Badge>
                   </div>
@@ -547,17 +494,18 @@ export default function InventoryPage() {
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem className="gap-2"><Edit className="h-4 w-4" /> Edit</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem 
-                          className="gap-2 text-destructive"
-                          onClick={() => handleDeleteProduct(product.id, product.name)}
-                        >
-                          <Trash2 className="h-4 w-4" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
+                      <DropdownMenuPortal>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem className="gap-2" onClick={() => handleEditClick(product)}>
+                            <Edit className="h-4 w-4" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDeleteProduct(product.id, product.name)}>
+                            <Trash2 className="h-4 w-4" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenuPortal>
                     </DropdownMenu>
                   </div>
                 </CardHeader>
@@ -569,27 +517,13 @@ export default function InventoryPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Stock</p>
-                      <p className={`text-xl font-bold ${isLowStock ? 'text-destructive' : ''}`}>{product.currentStockQuantity} <span className="text-xs font-normal">{product.unitOfMeasure}</span></p>
+                      <p className={`text-xl font-bold ${isLowStock ? 'text-destructive' : ''}`}>{product.currentStockQuantity || 0} <span className="text-xs font-normal">{product.unitOfMeasure}</span></p>
                     </div>
                   </div>
                 </CardContent>
                 <CardFooter className="p-4 bg-muted/30 border-t flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1 bg-white"
-                    onClick={() => handleStockAdjustment(product, 'STOCK_IN', 1)}
-                  >
-                    Stock In
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex-1 bg-white text-destructive hover:text-destructive"
-                    onClick={() => handleStockAdjustment(product, 'STOCK_OUT_WASTE', 1)}
-                  >
-                    Waste
-                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1 bg-white" onClick={() => handleStockAdjustment(product, 'STOCK_IN', 1)}>Stock In</Button>
+                  <Button variant="outline" size="sm" className="flex-1 bg-white text-destructive hover:text-destructive" onClick={() => handleStockAdjustment(product, 'STOCK_OUT_WASTE', 1)}>Waste</Button>
                 </CardFooter>
               </Card>
             )
