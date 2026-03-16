@@ -1,3 +1,4 @@
+
 import type {Metadata} from 'next';
 import './globals.css';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
@@ -27,26 +28,36 @@ export default function RootLayout({
       <body className="font-body antialiased bg-background text-foreground">
         <FirebaseClientProvider>
           <AuthInitializer>
-            <SidebarProvider>
-              <AppSidebar />
-              <SidebarInset>
-                <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 md:px-6">
-                  <SidebarTrigger className="-ml-1" />
-                  <Separator orientation="vertical" className="mr-2 h-4" />
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-primary">GulayanFlow</span>
-                    <span className="text-xs text-muted-foreground hidden sm:inline-block">/ Dashboard</span>
-                  </div>
-                </header>
-                <main className="p-4 md:p-8 lg:p-12 min-h-screen">
-                  {children}
-                </main>
-              </SidebarInset>
-              <Toaster />
-            </SidebarProvider>
+            <LayoutContent>{children}</LayoutContent>
+            <Toaster />
           </AuthInitializer>
         </FirebaseClientProvider>
       </body>
     </html>
+  );
+}
+
+// Separate component to handle the conditional sidebar layout
+function LayoutContent({ children }: { children: React.ReactNode }) {
+  return (
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full">
+        {/* The sidebar will be hidden by its own logic if we are on the login page or unauthenticated */}
+        <AppSidebar />
+        <SidebarInset>
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 md:px-6">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-2 h-4" />
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-primary">GulayanFlow</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline-block">/ Dashboard</span>
+            </div>
+          </header>
+          <main className="p-4 md:p-8 lg:p-12 min-h-screen">
+            {children}
+          </main>
+        </SidebarInset>
+      </div>
+    </SidebarProvider>
   );
 }

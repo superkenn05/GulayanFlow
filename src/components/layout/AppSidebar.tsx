@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -30,6 +31,7 @@ import {
   SidebarMenuItem,
   SidebarFooter,
 } from "@/components/ui/sidebar"
+import { useUser } from "@/firebase"
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -46,6 +48,12 @@ const items = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const { user } = useUser()
+
+  // Hide sidebar completely on login page or if user is unauthenticated
+  if (pathname === '/login' || (!user || user.isAnonymous)) {
+    return null
+  }
 
   return (
     <Sidebar collapsible="icon">
