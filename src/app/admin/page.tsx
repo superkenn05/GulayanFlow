@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState } from 'react'
@@ -53,7 +54,7 @@ export default function AdminManagementPage() {
 
   // The Single Superadmin check
   const isSuperadmin = user?.email === 'markken@gulayan.ph'
-  const isAdmin = profile?.role === 'Admin' || isSuperadmin
+  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
   const handleSaveStaff = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -64,22 +65,22 @@ export default function AdminManagementPage() {
 
     setIsSaving(true)
     try {
-      const staffId = formData.email.replace(/[^a-zA-Z0-9]/g, '_')
-      const staffRef = doc(db, 'staffUsers', staffId)
+      // Create a unique ID for the placeholder document based on email
+      const staffDocId = formData.email.replace(/[^a-zA-Z0-9]/g, '_')
+      const staffDocRef = doc(db, 'staffUsers', staffDocId)
       
-      // Note: Only the Superadmin can create new entries here
-      setDocumentNonBlocking(staffRef, {
-        id: staffId,
+      setDocumentNonBlocking(staffDocRef, {
+        id: staffDocId,
         name: formData.name,
         email: formData.email,
-        role: formData.role === 'Superadmin' ? 'Admin' : formData.role, // Only one Superadmin allowed
+        role: formData.role,
         password: formData.password,
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
         status: 'pending'
       }, { merge: true })
 
-      toast({ title: "Staff Member Added", description: `${formData.name} added successfully.` })
+      toast({ title: "Staff Member Added", description: `${formData.name} has been pre-registered.` })
       setIsDialogOpen(false)
       setFormData({ name: '', email: '', role: 'Staff', password: '' })
     } catch (error) {
@@ -95,7 +96,6 @@ export default function AdminManagementPage() {
   }
 
   const handleRoleChange = (id: string, newRole: string) => {
-    // Only Superadmin can change roles
     updateDocumentNonBlocking(doc(db, 'staffUsers', id), { role: newRole })
     toast({ title: "Role Updated", description: `Staff role changed to ${newRole}.` })
   }
@@ -242,11 +242,11 @@ export default function AdminManagementPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Modify Role</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'Admin')}>Change to Admin</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'Admin')}>Promote to Admin</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'Staff')}>Demote to Staff</DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteStaff(member.id, member.name)}>
-                            <Trash2 className="h-4 w-4 mr-2" /> Remove
+                            <Trash2 className="h-4 w-4 mr-2" /> Remove Account
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

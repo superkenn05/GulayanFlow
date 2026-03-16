@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -60,8 +61,9 @@ export function AppSidebar() {
     return null
   }
 
-  const userRole = profile?.role || 'Staff'
-  const isAdmin = userRole === 'Admin' || userRole === 'Superadmin'
+  // Consistent Admin/Superadmin check
+  const isSuperadmin = user?.email === 'markken@gulayan.ph'
+  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
   return (
     <Sidebar collapsible="icon">
