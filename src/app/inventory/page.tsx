@@ -446,27 +446,6 @@ export default function InventoryPage() {
                           )}
                         </div>
                         
-                        <div className="flex gap-2">
-                          <Input 
-                            id="image-url" 
-                            className="flex-1" 
-                            placeholder="Or paste an image URL directly..." 
-                            value={formData.imageUrl}
-                            onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
-                          />
-                          {formData.imageUrl && (
-                            <Button 
-                              type="button" 
-                              variant="destructive" 
-                              size="icon" 
-                              className="shrink-0"
-                              onClick={() => setFormData(prev => ({ ...prev, imageUrl: '' }))}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                        
                         <input 
                           type="file" 
                           ref={fileInputRef} 
