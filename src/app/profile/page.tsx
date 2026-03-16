@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -21,7 +22,6 @@ export default function ProfilePage() {
   const auth = useAuth()
   const router = useRouter()
   
-  // Memoize document reference for the specific user
   const userRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
   const { data: profile, isLoading } = useDoc(userRef)
 
@@ -31,7 +31,6 @@ export default function ProfilePage() {
   })
   const [isSaving, setIsSaving] = useState(false)
 
-  // Sync state when profile data arrives
   useEffect(() => {
     if (profile) {
       setFormData({
@@ -122,7 +121,13 @@ export default function ProfilePage() {
               <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
                 <Shield className="h-4 w-4 text-primary" />
               </div>
-              <span>{profile?.role === 'Admin' ? 'Admin Access' : 'Staff Access'}</span>
+              <span>
+                {profile?.role === 'Superadmin' 
+                  ? 'Superadmin Access' 
+                  : profile?.role === 'Admin' 
+                    ? 'Admin Access' 
+                    : 'Why Staff Access?'}
+              </span>
             </div>
           </CardContent>
           <CardFooter className="pt-0">
