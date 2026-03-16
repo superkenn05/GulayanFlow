@@ -1,5 +1,5 @@
 
-import { Product, Category, Transaction, Staff, Supplier, Order } from '../types';
+import { Product, Category, Transaction, Staff, Supplier, Order, Payment } from '../types';
 
 export const MOCK_CATEGORIES: Category[] = [
   { id: 'cat-1', name: 'Vegetables', icon: 'LeafyGreen' },
@@ -95,12 +95,34 @@ export const MOCK_TRANSACTIONS: Transaction[] = [
   },
 ];
 
-export const MOCK_STAFF: Staff = {
-  id: 's-1',
-  name: 'Gemma Cruz',
-  role: 'admin',
-  email: 'gemma@gulayan.ph',
-};
+export const MOCK_STAFF_LIST: Staff[] = [
+  {
+    id: 's-1',
+    name: 'Gemma Cruz',
+    role: 'admin',
+    email: 'gemma@gulayan.ph',
+    status: 'active',
+    lastLogin: new Date().toISOString(),
+  },
+  {
+    id: 's-2',
+    name: 'Juan Luna',
+    role: 'staff',
+    email: 'juan@gulayan.ph',
+    status: 'active',
+    lastLogin: new Date(Date.now() - 86400000).toISOString(),
+  },
+  {
+    id: 's-3',
+    name: 'Maria Clara',
+    role: 'staff',
+    email: 'maria@gulayan.ph',
+    status: 'inactive',
+    lastLogin: new Date(Date.now() - 604800000).toISOString(),
+  },
+];
+
+export const MOCK_STAFF: Staff = MOCK_STAFF_LIST[0];
 
 export const MOCK_SUPPLIERS: Supplier[] = [
   {
@@ -155,5 +177,38 @@ export const MOCK_ORDERS: Order[] = [
     status: 'pending',
     date: new Date().toISOString(),
     paymentMethod: 'gcash',
+  },
+];
+
+export const MOCK_PAYMENTS: Payment[] = [
+  {
+    id: 'pay-1',
+    orderId: 'ord-1001',
+    type: 'income',
+    amount: 220,
+    method: 'Cash',
+    date: new Date(Date.now() - 3600000).toISOString(),
+    status: 'successful',
+    description: 'Payment for Order #ord-1001',
+  },
+  {
+    id: 'pay-2',
+    supplierId: 'sup-1',
+    type: 'expense',
+    amount: 1500,
+    method: 'Bank Transfer',
+    date: new Date(Date.now() - 172800000).toISOString(),
+    status: 'successful',
+    description: 'Restock payment to Benguet Farmers',
+  },
+  {
+    id: 'pay-3',
+    orderId: 'ord-1002',
+    type: 'income',
+    amount: 100,
+    method: 'GCash',
+    date: new Date().toISOString(),
+    status: 'pending',
+    description: 'Awaiting GCash confirmation',
   },
 ];

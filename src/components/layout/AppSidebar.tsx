@@ -11,7 +11,10 @@ import {
   User, 
   ShoppingBasket, 
   Truck, 
-  FileText 
+  FileText,
+  CreditCard,
+  Settings,
+  ShieldCheck
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -30,11 +33,13 @@ import {
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Inventory", url: "/inventory", icon: Package },
-  { title: "Orders", url: "/orders", icon: ShoppingBasket },
+  { title: "Inventory Management", url: "/inventory", icon: Package },
+  { title: "Order Management", url: "/orders", icon: ShoppingBasket },
+  { title: "Payment Management", url: "/payments", icon: CreditCard },
+  { title: "Admin Management", url: "/admin", icon: ShieldCheck },
   { title: "Stock Tracking", url: "/stock", icon: History },
-  { title: "Categories", url: "/categories", icon: Tags },
-  { title: "Suppliers", url: "/suppliers", icon: Truck },
+  { title: "Category Management", url: "/categories", icon: Tags },
+  { title: "Supplier Management", url: "/suppliers", icon: Truck },
   { title: "AI Insights", url: "/insights", icon: BrainCircuit },
   { title: "Reports", url: "/reports", icon: FileText },
   { title: "Profile", url: "/profile", icon: User },

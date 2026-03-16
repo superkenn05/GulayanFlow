@@ -34,6 +34,8 @@ export type Staff = {
   name: string;
   role: 'admin' | 'staff';
   email: string;
+  status: 'active' | 'inactive';
+  lastLogin: string;
 };
 
 export type Supplier = {
@@ -61,4 +63,16 @@ export type Order = {
   status: 'completed' | 'pending' | 'cancelled';
   date: string;
   paymentMethod: 'cash' | 'gcash' | 'card';
+};
+
+export type Payment = {
+  id: string;
+  orderId?: string;
+  supplierId?: string;
+  type: 'income' | 'expense';
+  amount: number;
+  method: string;
+  date: string;
+  status: 'successful' | 'pending' | 'failed';
+  description: string;
 };
