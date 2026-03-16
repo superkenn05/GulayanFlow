@@ -5,98 +5,57 @@ service cloud.firestore {
     /**
      * GEMMA'S GULAYAN - SECURITY RULES PHILOSOPHY
      * 
-     * Core Philosophy:
-     * This ruleset implements a Role-Based Access Control (RBAC) model combined with 
-     * path-based ownership. It is designed for an inventory management system where 
-     * authenticated staff members manage shared resources (Products, Categories, Transactions).
-     *
-     * Data Structure:
-     * The database uses a flat, top-level collection structure to ensure authorization 
-     * independence and efficient queries.
-     * - /staffUsers: Personal profiles and role definitions.
-     * - /categories: Shared product classifications.
-     * - /products: Shared inventory items.
-     * - /stockTransactions: Audit logs of all stock movements.
+     * Role-Based Access Control (RBAC) with path-based ownership.
      */
 
     // --- Helper Functions ---
 
-    /** Checks if the request is from a signed-in user. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** Checks if the provided ID matches the authenticated user's UID. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /** 
-     * Retrieves the role of the authenticated staff member from their profile. 
-     * Uses exists() to prevent errors if the document is not yet created.
-     */
     function getStaffRole() {
       let path = /databases/$(database)/documents/staffUsers/$(request.auth.uid);
       return exists(path) ? get(path).data.role : 'Guest';
     }
 
-    /** Checks if the user has the 'Admin' role. */
     function isAdmin() {
       return isSignedIn() && getStaffRole() == 'Admin';
     }
 
-    /** Checks if the user is any authenticated staff member (Staff or Admin). */
     function isStaff() {
       let role = getStaffRole();
       return isSignedIn() && (role == 'Staff' || role == 'Admin');
     }
 
-    /** Combines ownership and existence checks for destructive operations. */
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
-    }
-
     // --- Collection Rules ---
 
-    /**
-     * @description Rules for staff member profiles. Users can manage their own data; Admins can view/manage all.
-     */
     match /staffUsers/{staffUserId} {
-      allow get: if isOwner(staffUserId) || isAdmin();
-      allow list: if isAdmin() || isOwner(staffUserId);
+      // Allow self-read and creation for registration. 
+      // Staff members can read each other to show names in transaction history.
+      allow get: if isOwner(staffUserId) || isStaff();
+      allow list: if isStaff();
       allow create: if isOwner(staffUserId);
-      allow update: if (isExistingOwner(staffUserId) || isAdmin());
+      allow update: if isOwner(staffUserId) || isAdmin();
       allow delete: if isAdmin();
     }
 
-    /**
-     * @description Rules for product categories. Accessible to all authorized staff.
-     */
     match /categories/{categoryId} {
-      allow get, list: if isStaff();
-      allow create: if isStaff();
-      allow update: if resource != null && isStaff();
-      allow delete: if resource != null && isStaff();
+      allow read, write: if isStaff();
     }
 
-    /**
-     * @description Rules for inventory products. Accessible to all authorized staff.
-     */
     match /products/{productId} {
-      allow get, list: if isStaff();
-      allow create: if isStaff();
-      allow update: if resource != null && isStaff();
-      allow delete: if resource != null && isStaff();
+      allow read, write: if isStaff();
     }
 
-    /**
-     * @description Rules for stock movement logs. Ensures audit trail integrity.
-     */
     match /stockTransactions/{transactionId} {
       allow get, list: if isStaff();
       allow create: if isStaff() && request.resource.data.staffUserId == request.auth.uid;
-      allow update: if resource != null && isAdmin();
-      allow delete: if resource != null && isAdmin();
+      allow update, delete: if isAdmin();
     }
 
     // --- Global Deny ---

@@ -5,6 +5,8 @@ import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const DEFAULT_CATEGORIES = [
   { id: 'cat-veg', name: 'Vegetables', description: 'Fresh leafy greens and more', icon: 'LeafyGreen' },
@@ -34,17 +36,41 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
 
         // 1. Ensure Staff Profile exists
         const userDocRef = doc(db, 'staffUsers', currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
+        let userDoc;
+        
+        try {
+          userDoc = await getDoc(userDocRef);
+        } catch (e: any) {
+          // If the initial get fails, it's likely a permission error during first-time setup
+          const permissionError = new FirestorePermissionError({
+            path: userDocRef.path,
+            operation: 'get',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          return;
+        }
         
         if (!userDoc.exists()) {
-          await setDoc(userDocRef, {
+          const staffData = {
             id: currentUser.uid,
             name: 'Gemma (Admin)',
             email: 'gemma@gulayan.ph',
             role: 'Admin',
             createdAt: serverTimestamp(),
             lastLogin: serverTimestamp(),
-          });
+          };
+
+          try {
+            await setDoc(userDocRef, staffData);
+          } catch (e: any) {
+            const permissionError = new FirestorePermissionError({
+              path: userDocRef.path,
+              operation: 'create',
+              requestResourceData: staffData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            return;
+          }
         } else {
           await setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true });
         }
@@ -60,10 +86,10 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
           await batch.commit();
         }
 
-      } catch (error) {
-        console.error("Initialization error:", error);
-      } finally {
         setIsInitializing(false);
+      } catch (error) {
+        // Generic catch for unexpected initialization failures
+        console.error("Critical initialization failure:", error);
       }
     }
 
