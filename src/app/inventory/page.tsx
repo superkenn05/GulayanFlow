@@ -126,6 +126,7 @@ export default function InventoryPage() {
     if (!file) return;
 
     // Show local preview immediately
+    if (localPreview) URL.revokeObjectURL(localPreview);
     const objectUrl = URL.createObjectURL(file);
     setLocalPreview(objectUrl);
 
@@ -138,6 +139,7 @@ export default function InventoryPage() {
         description: "Please set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET in your environment.",
         variant: "destructive"
       });
+      // We keep the local preview so the user at least sees what they selected
       return;
     }
 
@@ -433,21 +435,12 @@ export default function InventoryPage() {
                         >
                           {(formData.imageUrl || localPreview) ? (
                             <div className="relative h-full w-full">
-                              {/* Using standard img for local preview to ensure absolute compatibility with blob URLs */}
-                              {formData.imageUrl ? (
-                                <Image 
-                                  src={formData.imageUrl} 
-                                  alt="Preview" 
-                                  fill 
-                                  className="object-cover"
-                                />
-                              ) : (
-                                <img 
-                                  src={localPreview!} 
-                                  alt="Local Preview" 
-                                  className="h-full w-full object-cover"
-                                />
-                              )}
+                              {/* Using standard img for both local and uploaded previews to bypass Next Image optimization issues in form */}
+                              <img 
+                                src={formData.imageUrl || localPreview!} 
+                                alt="Preview" 
+                                className="h-full w-full object-cover"
+                              />
                               
                               {isUploading && (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/30 backdrop-blur-[2px]">
@@ -533,6 +526,7 @@ export default function InventoryPage() {
                     src={product.imageUrl || 'https://picsum.photos/seed/produce/400/300'}
                     alt={product.name}
                     fill
+                    unoptimized
                     className="object-cover transition-transform group-hover:scale-105"
                     data-ai-hint="vegetable fruit produce"
                   />
