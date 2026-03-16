@@ -1,7 +1,6 @@
-
 "use client"
 
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -10,22 +9,29 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { MOCK_PRODUCTS, MOCK_TRANSACTIONS } from '../lib/mock-data'
 import { Badge } from '@/components/ui/badge'
-import { ArrowUpRight, ArrowDownRight, Trash2, Filter } from 'lucide-react'
+import { ArrowUpRight, ArrowDownRight, Trash2, Filter, Loader2, History } from 'lucide-react'
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase'
+import { collection, query, orderBy, limit } from 'firebase/firestore'
 
 export default function StockTrackingPage() {
   const [activeTab, setActiveTab] = useState('history')
-  const [mounted, setMounted] = useState(false)
+  const db = useFirestore()
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const productsQuery = useMemoFirebase(() => query(collection(db, 'products'), orderBy('name', 'asc')), [db])
+  const transactionsQuery = useMemoFirebase(() => query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(50)), [db])
+  const staffQuery = useMemoFirebase(() => query(collection(db, 'staffUsers')), [db])
+
+  const { data: products } = useCollection(productsQuery)
+  const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery)
+  const { data: staff } = useCollection(staffQuery)
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div>
-        <h1 className="text-3xl font-headline font-bold text-primary">Stock Tracking</h1>
+        <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-2">
+          Stock Tracking <History className="h-6 w-6" />
+        </h1>
         <p className="text-muted-foreground">Log inventory movements and track history.</p>
       </div>
 
@@ -45,9 +51,9 @@ export default function StockTrackingPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Movements</SelectItem>
-                    <SelectItem value="in">Stock Entry (In)</SelectItem>
-                    <SelectItem value="out">Sales (Out)</SelectItem>
-                    <SelectItem value="waste">Waste</SelectItem>
+                    <SelectItem value="STOCK_IN">Stock Entry (In)</SelectItem>
+                    <SelectItem value="STOCK_OUT_SALE">Sales (Out)</SelectItem>
+                    <SelectItem value="STOCK_OUT_WASTE">Waste</SelectItem>
                   </SelectContent>
                 </Select>
              </div>
@@ -57,48 +63,64 @@ export default function StockTrackingPage() {
           </div>
 
           <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date & Time</TableHead>
-                  <TableHead>Product</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Quantity</TableHead>
-                  <TableHead>Staff</TableHead>
-                  <TableHead>Reason/Note</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {MOCK_TRANSACTIONS.map((t) => {
-                  const product = MOCK_PRODUCTS.find(p => p.id === t.productId)
-                  return (
-                    <TableRow key={t.id}>
-                      <TableCell className="text-xs">
-                        {mounted ? new Date(t.date).toLocaleString() : ""}
+            {transactionsLoading ? (
+              <div className="flex justify-center py-20">
+                <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date & Time</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Staff</TableHead>
+                    <TableHead>Reason/Note</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions?.map((t) => {
+                    const product = products?.find(p => p.id === t.productId)
+                    const staffMember = staff?.find(s => s.id === t.staffUserId)
+                    const isPositive = t.quantityChange > 0
+
+                    return (
+                      <TableRow key={t.id}>
+                        <TableCell className="text-xs">
+                          {t.transactionDate ? new Date(t.transactionDate.toDate()).toLocaleString() : "Processing..."}
+                        </TableCell>
+                        <TableCell className="font-medium">{product?.name || 'Unknown Product'}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={`${
+                            isPositive ? 'border-green-500 text-green-600 bg-green-50' :
+                            t.transactionType === 'STOCK_OUT_SALE' ? 'border-blue-500 text-blue-600 bg-blue-50' :
+                            'border-red-500 text-red-600 bg-red-50'
+                          } flex items-center w-fit gap-1`}>
+                            {isPositive ? <ArrowUpRight className="h-3 w-3" /> :
+                             t.transactionType === 'STOCK_OUT_SALE' ? <ArrowDownRight className="h-3 w-3" /> :
+                             <Trash2 className="h-3 w-3" />}
+                            {t.transactionType?.replace('STOCK_', '').replace('_', ' ')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-bold">
+                          {isPositive ? '+' : ''}{t.quantityChange} {product?.unitOfMeasure}
+                        </TableCell>
+                        <TableCell>{staffMember?.name || 'System'}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs italic">{t.reason || '-'}</TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  {!transactions?.length && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
+                        No transactions recorded yet.
                       </TableCell>
-                      <TableCell className="font-medium">{product?.name || 'Unknown'}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={`${
-                          t.type === 'in' ? 'border-green-500 text-green-600 bg-green-50' :
-                          t.type === 'out' ? 'border-blue-500 text-blue-600 bg-blue-50' :
-                          'border-red-500 text-red-600 bg-red-50'
-                        } flex items-center w-fit gap-1`}>
-                          {t.type === 'in' ? <ArrowUpRight className="h-3 w-3" /> :
-                           t.type === 'out' ? <ArrowDownRight className="h-3 w-3" /> :
-                           <Trash2 className="h-3 w-3" />}
-                          {t.type.toUpperCase()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-bold">
-                        {t.type === 'in' ? '+' : '-'}{t.quantity} {product?.unit}
-                      </TableCell>
-                      <TableCell>{t.staffName}</TableCell>
-                      <TableCell className="text-muted-foreground text-xs italic">{t.reason || '-'}</TableCell>
                     </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </Card>
         </TabsContent>
 
@@ -112,14 +134,14 @@ export default function StockTrackingPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Movement Type</Label>
-                  <Select defaultValue="in">
+                  <Select defaultValue="STOCK_IN">
                     <SelectTrigger>
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="in">Stock Entry (In)</SelectItem>
-                      <SelectItem value="out">Stock Transfer (Out)</SelectItem>
-                      <SelectItem value="waste">Damage/Waste</SelectItem>
+                      <SelectItem value="STOCK_IN">Stock Entry (In)</SelectItem>
+                      <SelectItem value="STOCK_OUT_TRANSFER">Stock Transfer (Out)</SelectItem>
+                      <SelectItem value="STOCK_OUT_WASTE">Damage/Waste</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -130,7 +152,7 @@ export default function StockTrackingPage() {
                       <SelectValue placeholder="Select product" />
                     </SelectTrigger>
                     <SelectContent>
-                      {MOCK_PRODUCTS.map(p => (
+                      {products?.map(p => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -164,13 +186,13 @@ export default function StockTrackingPage() {
                   <CardTitle>Current Stock Preview</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {MOCK_PRODUCTS.slice(0, 3).map(p => (
+                  {products?.slice(0, 5).map(p => (
                     <div key={p.id} className="flex justify-between items-center text-sm">
                       <span>{p.name}</span>
-                      <span className="font-bold">{p.currentStock} {p.unit}</span>
+                      <span className="font-bold">{p.currentStockQuantity} {p.unitOfMeasure}</span>
                     </div>
                   ))}
-                  <Button variant="link" className="p-0 h-auto text-xs" onClick={() => setActiveTab('history')}>View all inventory</Button>
+                  <Button variant="link" className="p-0 h-auto text-xs" onClick={() => setActiveTab('history')}>View all history</Button>
                 </CardContent>
               </Card>
             </div>

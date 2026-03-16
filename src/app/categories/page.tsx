@@ -1,11 +1,13 @@
-
 "use client"
 
 import React from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Plus, Edit, Trash2, Leaf, Apple, Carrot, Wheat, Flame } from "lucide-react"
-import { MOCK_CATEGORIES, MOCK_PRODUCTS } from '../lib/mock-data'
+import { Plus, Edit, Trash2, Leaf, Apple, Carrot, Wheat, Flame, Loader2 } from "lucide-react"
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase'
+import { collection, query, orderBy, doc } from 'firebase/firestore'
+import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates'
+import { toast } from '@/hooks/use-toast'
 
 const ICON_MAP: Record<string, any> = {
   LeafyGreen: Leaf,
@@ -16,6 +18,19 @@ const ICON_MAP: Record<string, any> = {
 }
 
 export default function CategoriesPage() {
+  const db = useFirestore()
+  
+  const categoriesQuery = useMemoFirebase(() => query(collection(db, 'categories'), orderBy('name', 'asc')), [db])
+  const productsQuery = useMemoFirebase(() => query(collection(db, 'products')), [db])
+  
+  const { data: categories, isLoading: categoriesLoading } = useCollection(categoriesQuery)
+  const { data: products } = useCollection(productsQuery)
+
+  const handleDelete = (id: string, name: string) => {
+    deleteDocumentNonBlocking(doc(db, 'categories', id))
+    toast({ title: "Deleted", description: `${name} category removed.` })
+  }
+
   return (
     <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -28,34 +43,45 @@ export default function CategoriesPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {MOCK_CATEGORIES.map((category) => {
-          const productCount = MOCK_PRODUCTS.filter(p => p.categoryId === category.id).length
-          const Icon = ICON_MAP[category.icon] || Leaf
+      {categoriesLoading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {categories?.map((category) => {
+            const productCount = products?.filter(p => p.categoryId === category.id).length || 0
+            const Icon = ICON_MAP[category.icon] || Leaf
 
-          return (
-            <Card key={category.id} className="group hover:shadow-md transition-all">
-              <CardHeader className="flex flex-row items-center gap-4">
-                <div className="w-12 h-12 bg-secondary rounded-xl flex items-center justify-center text-primary">
-                  <Icon className="h-6 w-6" />
-                </div>
-                <div className="flex-1">
-                  <CardTitle className="text-xl font-headline">{category.name}</CardTitle>
-                  <CardDescription>{productCount} products listed</CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="flex justify-end gap-2 pt-0">
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </CardContent>
-            </Card>
-          )
-        })}
-      </div>
+            return (
+              <Card key={category.id} className="group hover:shadow-md transition-all">
+                <CardHeader className="flex flex-row items-center gap-4">
+                  <div className="w-12 h-12 bg-secondary rounded-xl flex items-center justify-center text-primary">
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1">
+                    <CardTitle className="text-xl font-headline">{category.name}</CardTitle>
+                    <CardDescription>{productCount} products listed</CardDescription>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex justify-end gap-2 pt-0">
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 w-8 p-0 text-destructive"
+                    onClick={() => handleDelete(category.id, category.name)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

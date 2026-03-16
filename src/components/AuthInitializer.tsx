@@ -3,8 +3,16 @@
 import { useEffect, useState } from 'react';
 import { useAuth, useFirestore, useUser } from '@/firebase';
 import { signInAnonymously } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
+
+const DEFAULT_CATEGORIES = [
+  { id: 'cat-veg', name: 'Vegetables', description: 'Fresh leafy greens and more', icon: 'LeafyGreen' },
+  { id: 'cat-fruit', name: 'Fruits', description: 'Sweet and seasonal fruits', icon: 'Apple' },
+  { id: 'cat-root', name: 'Root Crops', description: 'Fresh highland produce', icon: 'Carrot' },
+  { id: 'cat-grain', name: 'Grains', description: 'Rice and local grains', icon: 'Wheat' },
+  { id: 'cat-spice', name: 'Spices', description: 'Onions, garlic, and more', icon: 'Flame' },
+];
 
 export function AuthInitializer({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
@@ -14,20 +22,17 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function init() {
-      // Wait for Firebase services to be available and initial auth state to be determined
       if (!auth || !db || isUserLoading) return;
 
       try {
         let currentUser = user;
         
-        // If no user is signed in, sign in anonymously
         if (!currentUser) {
           const cred = await signInAnonymously(auth);
           currentUser = cred.user;
         }
 
-        // Crucially, always ensure the staff profile document exists in Firestore.
-        // This handles cases where a user is signed in but their DB record is missing.
+        // 1. Ensure Staff Profile exists
         const userDocRef = doc(db, 'staffUsers', currentUser.uid);
         const userDoc = await getDoc(userDocRef);
         
@@ -41,9 +46,20 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
             lastLogin: serverTimestamp(),
           });
         } else {
-          // Update last login for existing users
           await setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true });
         }
+
+        // 2. Seed Default Categories if empty
+        const categoriesSnapshot = await getDocs(collection(db, 'categories'));
+        if (categoriesSnapshot.empty) {
+          const batch = writeBatch(db);
+          DEFAULT_CATEGORIES.forEach((cat) => {
+            const ref = doc(db, 'categories', cat.id);
+            batch.set(ref, cat);
+          });
+          await batch.commit();
+        }
+
       } catch (error) {
         console.error("Initialization error:", error);
       } finally {
@@ -54,7 +70,6 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
     init();
   }, [auth, db, user, isUserLoading]);
 
-  // Gate the application rendering until authentication and profile setup are complete
   if (isUserLoading || isInitializing) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center gap-4">
