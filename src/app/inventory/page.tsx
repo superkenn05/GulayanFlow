@@ -131,15 +131,15 @@ export default function InventoryPage() {
     setLocalPreview(objectUrl);
 
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    // Use the preset from the user's screenshot as a fallback
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'firebase_upload';
 
-    if (!cloudName || !uploadPreset) {
+    if (!cloudName) {
       toast({
         title: "Cloudinary not configured",
-        description: "Please set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME and NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET in your environment.",
+        description: "Please set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME in your environment settings.",
         variant: "destructive"
       });
-      // We keep the local preview so the user at least sees what they selected
       return;
     }
 
@@ -158,19 +158,23 @@ export default function InventoryPage() {
         }
       );
 
-      if (!response.ok) throw new Error('Upload failed');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Upload failed');
+      }
 
       const data = await response.json();
       setFormData(prev => ({ ...prev, imageUrl: data.secure_url }));
+      
       toast({
         title: "Success",
         description: "Image uploaded successfully."
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Cloudinary upload error:', error);
       toast({
         title: "Upload Failed",
-        description: "Could not upload image to Cloudinary.",
+        description: error.message || "Could not upload image to Cloudinary.",
         variant: "destructive"
       });
     } finally {
@@ -435,11 +439,13 @@ export default function InventoryPage() {
                         >
                           {(formData.imageUrl || localPreview) ? (
                             <div className="relative h-full w-full">
-                              {/* Using standard img for both local and uploaded previews to bypass Next Image optimization issues in form */}
                               <img 
                                 src={formData.imageUrl || localPreview!} 
                                 alt="Preview" 
                                 className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  console.error("Image failed to load:", e.currentTarget.src);
+                                }}
                               />
                               
                               {isUploading && (
