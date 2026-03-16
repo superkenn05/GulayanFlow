@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react'
@@ -6,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Search, Filter, Edit, Trash2, MoreHorizontal } from "lucide-react"
+import { Plus, Search, Filter, Edit, Trash2, MoreHorizontal, Sparkles, Loader2 } from "lucide-react"
 import { MOCK_PRODUCTS, MOCK_CATEGORIES } from '../lib/mock-data'
 import Image from 'next/image'
 import {
@@ -30,13 +29,67 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { getNutritionalValues } from '@/ai/flows/nutritional-values-flow'
+import { toast } from '@/hooks/use-toast'
 
 export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState('')
+  const [isAiLoading, setIsAiLoading] = useState(false)
+  
+  // Form State
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    calories: '',
+    protein: '',
+    carbs: '',
+    fat: ''
+  })
 
   const filteredProducts = MOCK_PRODUCTS.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  const handleAutofillNutrition = async () => {
+    if (!formData.name) {
+      toast({
+        title: "Product name required",
+        description: "Please enter a product name first so AI can estimate its nutrition.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setIsAiLoading(true)
+    try {
+      const nutrition = await getNutritionalValues({ 
+        name: formData.name,
+        description: formData.description 
+      })
+      
+      setFormData(prev => ({
+        ...prev,
+        calories: nutrition.calories,
+        protein: nutrition.protein,
+        carbs: nutrition.carbs,
+        fat: nutrition.fat
+      }))
+
+      toast({
+        title: "Magic happened! ✨",
+        description: `Estimated nutrition for ${formData.name} has been filled.`
+      })
+    } catch (error) {
+      console.error("AI Autofill failed:", error)
+      toast({
+        title: "AI failed",
+        description: "Could not estimate nutrition. Please fill manually.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsAiLoading(false)
+    }
+  }
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
@@ -45,7 +98,9 @@ export default function InventoryPage() {
           <h1 className="text-3xl font-headline font-bold text-primary">Inventory</h1>
           <p className="text-muted-foreground">Manage your product catalog and current stock.</p>
         </div>
-        <Dialog>
+        <Dialog onOpenChange={(open) => {
+          if (!open) setFormData({ name: '', description: '', calories: '', protein: '', carbs: '', fat: '' })
+        }}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" /> Add Product
@@ -55,7 +110,7 @@ export default function InventoryPage() {
             <DialogHeader>
               <DialogTitle>Add New Product</DialogTitle>
               <DialogDescription>
-                Fill in the details for the new inventory item. All fields are required for a complete customer view.
+                Fill in the details for the new inventory item.
               </DialogDescription>
             </DialogHeader>
             <ScrollArea className="max-h-[70vh] pr-4">
@@ -64,7 +119,13 @@ export default function InventoryPage() {
                   <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Basic Information</h3>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="name" className="text-right">Name</Label>
-                    <Input id="name" className="col-span-3" placeholder="e.g. Red Tomatoes" />
+                    <Input 
+                      id="name" 
+                      className="col-span-3" 
+                      placeholder="e.g. Red Tomatoes" 
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="category" className="text-right">Category</Label>
@@ -81,7 +142,71 @@ export default function InventoryPage() {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="description" className="text-right">Description</Label>
-                    <Textarea id="description" className="col-span-3" placeholder="Fresh and juicy red tomatoes..." />
+                    <Textarea 
+                      id="description" 
+                      className="col-span-3" 
+                      placeholder="Fresh and juicy..." 
+                      value={formData.description}
+                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Nutritional Values (per 100g)</h3>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8 gap-2 text-xs border-primary/20 hover:bg-primary/5"
+                      onClick={handleAutofillNutrition}
+                      disabled={isAiLoading}
+                    >
+                      {isAiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3 text-accent" />}
+                      {isAiLoading ? "Consulting AI..." : "Magic Autofill"}
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-4 items-center gap-2">
+                      <Label htmlFor="calories" className="text-right text-xs">Calories</Label>
+                      <Input 
+                        id="calories" 
+                        className="col-span-3" 
+                        placeholder="18kcal" 
+                        value={formData.calories}
+                        onChange={(e) => setFormData(prev => ({ ...prev, calories: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-2">
+                      <Label htmlFor="protein" className="text-right text-xs">Protein</Label>
+                      <Input 
+                        id="protein" 
+                        className="col-span-3" 
+                        placeholder="0.9g" 
+                        value={formData.protein}
+                        onChange={(e) => setFormData(prev => ({ ...prev, protein: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-2">
+                      <Label htmlFor="carbs" className="text-right text-xs">Carbs</Label>
+                      <Input 
+                        id="carbs" 
+                        className="col-span-3" 
+                        placeholder="3.9g" 
+                        value={formData.carbs}
+                        onChange={(e) => setFormData(prev => ({ ...prev, carbs: e.target.value }))}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-2">
+                      <Label htmlFor="fat" className="text-right text-xs">Fat</Label>
+                      <Input 
+                        id="fat" 
+                        className="col-span-3" 
+                        placeholder="0.2g" 
+                        value={formData.fat}
+                        onChange={(e) => setFormData(prev => ({ ...prev, fat: e.target.value }))}
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -116,28 +241,6 @@ export default function InventoryPage() {
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="image" className="text-right">Image URL</Label>
                     <Input id="image" className="col-span-3" placeholder="https://..." />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Nutritional Values (per 100g)</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid grid-cols-4 items-center gap-2">
-                      <Label htmlFor="calories" className="text-right text-xs">Calories</Label>
-                      <Input id="calories" className="col-span-3" placeholder="18kcal" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-2">
-                      <Label htmlFor="protein" className="text-right text-xs">Protein</Label>
-                      <Input id="protein" className="col-span-3" placeholder="0.9g" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-2">
-                      <Label htmlFor="carbs" className="text-right text-xs">Carbs</Label>
-                      <Input id="carbs" className="col-span-3" placeholder="3.9g" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-2">
-                      <Label htmlFor="fat" className="text-right text-xs">Fat</Label>
-                      <Input id="fat" className="col-span-3" placeholder="0.2g" />
-                    </div>
                   </div>
                 </div>
               </div>
