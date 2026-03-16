@@ -11,6 +11,25 @@ export const MOCK_CATEGORIES: Category[] = [
 
 export const MOCK_PRODUCTS: Product[] = [
   {
+    id: 'p-tomato',
+    name: 'Red Tomatoes',
+    categoryId: 'cat-1',
+    price: 45,
+    currentStock: 120,
+    unit: 'kg',
+    imageUrl: 'https://picsum.photos/seed/tomato/800/600',
+    description: 'Fresh and juicy red tomatoes sourced directly from local farmers in Benguet.',
+    status: 'in-stock',
+    rating: 4.8,
+    reviewsCount: 124,
+    nutritionalValues: {
+      calories: '18kcal',
+      protein: '0.9g',
+      carbs: '3.9g',
+      fat: '0.2g'
+    }
+  },
+  {
     id: 'p-1',
     name: 'Carrots',
     categoryId: 'cat-3',
@@ -53,17 +72,6 @@ export const MOCK_PRODUCTS: Product[] = [
     imageUrl: 'https://picsum.photos/seed/banana/400/300',
     description: 'Sweet lakatan bananas.',
     status: 'out-of-stock',
-  },
-  {
-    id: 'p-5',
-    name: 'Garlic',
-    categoryId: 'cat-5',
-    price: 200,
-    currentStock: 3,
-    unit: 'kg',
-    imageUrl: 'https://picsum.photos/seed/garlic/400/300',
-    description: 'Imported white garlic.',
-    status: 'low-stock',
   },
 ];
 

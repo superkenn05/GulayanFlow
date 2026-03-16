@@ -5,6 +5,13 @@ export type Category = {
   icon: string;
 };
 
+export type NutritionalValues = {
+  calories: string;
+  protein: string;
+  carbs: string;
+  fat: string;
+};
+
 export type Product = {
   id: string;
   name: string;
@@ -15,6 +22,9 @@ export type Product = {
   imageUrl: string;
   description: string;
   status: 'in-stock' | 'low-stock' | 'out-of-stock';
+  rating?: number;
+  reviewsCount?: number;
+  nutritionalValues?: NutritionalValues;
 };
 
 export type TransactionType = 'in' | 'out' | 'waste';
