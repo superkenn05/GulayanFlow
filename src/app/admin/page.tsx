@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { UserPlus, Shield, MoreVertical, Mail, Activity, Loader2, Trash2, Lock } from "lucide-react"
+import { UserPlus, Shield, MoreVertical, Mail, Activity, Loader2, Trash2, Lock, Key } from "lucide-react"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -39,7 +39,6 @@ export default function AdminManagementPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   
-  // Check Admin role
   const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
   const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
   
@@ -49,12 +48,29 @@ export default function AdminManagementPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    role: 'Staff'
+    role: 'Staff',
+    password: ''
   })
 
   const handleSaveStaff = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name || !formData.email) return
+    if (!formData.name || !formData.email || !formData.password) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields, including the initial password.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (formData.password.length < 6) {
+      toast({
+        title: "Weak Password",
+        description: "Initial password must be at least 6 characters.",
+        variant: "destructive"
+      })
+      return
+    }
 
     setIsSaving(true)
     try {
@@ -66,17 +82,18 @@ export default function AdminManagementPage() {
         name: formData.name,
         email: formData.email,
         role: formData.role,
+        password: formData.password, // Store initial password for activation bridge
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
-        status: 'active'
+        status: 'pending'
       }, { merge: true })
 
       toast({
         title: "Staff Member Added",
-        description: `${formData.name} has been added to the directory.`
+        description: `${formData.name} has been added to the directory. They can now activate their account using the provided password.`
       })
       setIsDialogOpen(false)
-      setFormData({ name: '', email: '', role: 'Staff' })
+      setFormData({ name: '', email: '', role: 'Staff', password: '' })
     } catch (error) {
       toast({
         title: "Error",
@@ -153,7 +170,7 @@ export default function AdminManagementPage() {
               <DialogHeader>
                 <DialogTitle>Add New Staff Member</DialogTitle>
                 <DialogDescription>
-                  Create a profile for a new staff member. Note: They will still need to sign in using their credentials.
+                  Create a profile for a new staff member. They will use the email and initial password to activate their account.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -192,6 +209,21 @@ export default function AdminManagementPage() {
                       <SelectItem value="Admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="password">Initial Password</Label>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      id="password" 
+                      type="password"
+                      className="pl-10"
+                      placeholder="Min. 6 characters" 
+                      required 
+                      value={formData.password}
+                      onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                    />
+                  </div>
                 </div>
               </div>
               <DialogFooter>
@@ -257,7 +289,7 @@ export default function AdminManagementPage() {
                   <TableHead>Staff Member</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Last Activity</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -279,8 +311,10 @@ export default function AdminManagementPage() {
                         {member.role}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {member.lastLogin?.toDate ? member.lastLogin.toDate().toLocaleDateString() : 'Never'}
+                    <TableCell>
+                      <Badge variant={member.status === 'active' ? 'default' : 'outline'} className="capitalize">
+                        {member.status || 'Active'}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>

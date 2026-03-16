@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -19,7 +20,7 @@ import {
   where, 
   getDocs, 
   doc, 
-  updateDoc, 
+  writeBatch,
   serverTimestamp 
 } from 'firebase/firestore'
 import { toast } from '@/hooks/use-toast'
@@ -36,7 +37,6 @@ export default function LoginPage() {
   const router = useRouter()
   const { user } = useUser()
 
-  // Redirect if already logged in (as a non-anonymous user)
   useEffect(() => {
     if (user && !user.isAnonymous) {
       router.push('/')
@@ -49,7 +49,6 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      // 1. Attempt standard Firebase Auth Login
       await signInWithEmailAndPassword(auth, email, password)
       toast({
         title: "Welcome back!",
@@ -59,8 +58,6 @@ export default function LoginPage() {
     } catch (err: any) {
       console.log("Auth attempt failed, checking database for activation...", err.code)
       
-      // 2. If login fails, check Firestore for pre-registered staff (Activation Flow)
-      // Standard error codes for "not found" or "invalid"
       const isUserNotFound = err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password';
       
       if (isUserNotFound) {
@@ -75,31 +72,37 @@ export default function LoginPage() {
             const staffDoc = querySnapshot.docs[0]
             const staffData = staffDoc.data()
 
-            // Verify password against DB record (Activation bridge)
             if (staffData.password === password) {
-              
-              // Firebase requires 6+ chars
               if (password.length < 6) {
                 setError("Firebase requires a password of at least 6 characters. Please update the staff record in the Admin panel.")
                 setIsLoading(false)
                 return
               }
 
-              // 3. Create the Auth User
               const userCredential = await createUserWithEmailAndPassword(auth, email, password)
               
-              // Update Auth Profile Display Name
               await updateProfile(userCredential.user, {
                 displayName: staffData.name
               })
 
-              // Link Firestore record to the new Auth UID
-              const staffRef = doc(db, 'staffUsers', staffDoc.id)
-              await updateDoc(staffRef, {
+              const batch = writeBatch(db)
+              const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
+              const oldUserRef = doc(db, 'staffUsers', staffDoc.id)
+
+              // Migrate data from placeholder to UID-based document
+              batch.set(newUserRef, {
+                ...staffData,
                 id: userCredential.user.uid,
                 lastLogin: serverTimestamp(),
                 status: 'active'
               })
+
+              // Delete the placeholder if it's different from the UID (it usually is)
+              if (staffDoc.id !== userCredential.user.uid) {
+                batch.delete(oldUserRef)
+              }
+
+              await batch.commit()
 
               toast({
                 title: "Account Activated",

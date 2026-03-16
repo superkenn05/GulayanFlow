@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -29,52 +30,51 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
       try {
         let currentUser = user;
         
+        // If not logged in, we stay on the login page (or use anonymous for first-run probing)
         if (!currentUser) {
-          const cred = await signInAnonymously(auth);
-          currentUser = cred.user;
+          // Note: Anonymous is only used if absolutely necessary for initial seeding
+          // Most apps will just wait for actual sign-in.
+          setIsInitializing(false);
+          return;
         }
 
-        // 1. Ensure Staff Profile exists
+        // 1. Ensure Staff Profile exists at the current UID
         const userDocRef = doc(db, 'staffUsers', currentUser.uid);
         let userDoc;
         
         try {
           userDoc = await getDoc(userDocRef);
         } catch (e: any) {
-          const permissionError = new FirestorePermissionError({
-            path: userDocRef.path,
-            operation: 'get',
-          });
-          errorEmitter.emit('permission-error', permissionError);
+          // If we get a permission error here, it might be because the user is anonymous
+          // and hasn't logged in yet. That's fine.
+          setIsInitializing(false);
           return;
         }
         
-        if (!userDoc.exists()) {
+        // If profile doesn't exist AND it's a real user, create a default profile
+        // If it's an anonymous user, we don't necessarily want to create a staff record
+        if (!userDoc.exists() && !currentUser.isAnonymous) {
           const staffData = {
             id: currentUser.uid,
-            name: 'Bakit sya lang ang admin?',
-            email: 'admin@gulayan.ph',
-            role: 'Admin',
+            name: currentUser.displayName || 'Staff Member',
+            email: currentUser.email || 'staff@gulayan.ph',
+            role: 'Staff',
             createdAt: serverTimestamp(),
             lastLogin: serverTimestamp(),
+            status: 'active'
           };
 
           try {
             await setDoc(userDocRef, staffData);
           } catch (e: any) {
-            const permissionError = new FirestorePermissionError({
-              path: userDocRef.path,
-              operation: 'create',
-              requestResourceData: staffData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-            return;
+            console.warn("Could not create initial staff profile:", e);
           }
-        } else {
+        } else if (userDoc.exists()) {
+          // Update last login
           setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true }).catch(() => {});
         }
 
-        // 2. Seed Default Categories if empty
+        // 2. Seed Default Categories if empty (Global data, only needs to happen once)
         try {
           const categoriesSnapshot = await getDocs(collection(db, 'categories'));
           if (categoriesSnapshot.empty) {
@@ -92,6 +92,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
         setIsInitializing(false);
       } catch (error) {
         console.error("Critical initialization failure:", error);
+        setIsInitializing(false);
       }
     }
 
