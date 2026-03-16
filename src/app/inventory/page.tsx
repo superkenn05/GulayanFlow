@@ -161,7 +161,7 @@ export default function InventoryPage() {
       setFormData(prev => ({ ...prev, imageUrl: data.secure_url }));
       toast({
         title: "Success",
-        description: "Image uploaded to Cloudinary successfully."
+        description: "Image uploaded successfully."
       });
     } catch (error) {
       console.error('Cloudinary upload error:', error);
@@ -170,7 +170,7 @@ export default function InventoryPage() {
         description: "Could not upload image to Cloudinary.",
         variant: "destructive"
       });
-      setLocalPreview(null); // Clear preview on failure
+      setLocalPreview(null);
     } finally {
       setIsUploading(false);
     }
@@ -439,6 +439,7 @@ export default function InventoryPage() {
                                   alt="Uploading preview" 
                                   fill 
                                   className="object-cover opacity-40"
+                                  unoptimized
                                 />
                               )}
                               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/10">
@@ -467,6 +468,7 @@ export default function InventoryPage() {
                                 alt="Local Preview" 
                                 fill 
                                 className="object-cover"
+                                unoptimized
                               />
                               <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
                                 <Button type="button" variant="secondary" size="sm" className="gap-2">
