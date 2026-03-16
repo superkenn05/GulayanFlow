@@ -130,18 +130,10 @@ export default function InventoryPage() {
     const objectUrl = URL.createObjectURL(file);
     setLocalPreview(objectUrl);
 
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    // Use the preset from the user's screenshot as a fallback
+    // Use the Cloud Name provided by the user
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dzytzdamb';
+    // Use the preset 'firebase_upload'
     const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'firebase_upload';
-
-    if (!cloudName) {
-      toast({
-        title: "Cloudinary not configured",
-        description: "Please set NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME in your environment settings.",
-        variant: "destructive"
-      });
-      return;
-    }
 
     setIsUploading(true);
 
@@ -528,13 +520,10 @@ export default function InventoryPage() {
             return (
               <Card key={product.id} className="overflow-hidden group hover:shadow-lg transition-all border-none bg-white shadow-sm ring-1 ring-border">
                 <div className="relative h-48 w-full overflow-hidden bg-muted">
-                  <Image
+                  <img
                     src={product.imageUrl || 'https://picsum.photos/seed/produce/400/300'}
                     alt={product.name}
-                    fill
-                    unoptimized
-                    className="object-cover transition-transform group-hover:scale-105"
-                    data-ai-hint="vegetable fruit produce"
+                    className="h-full w-full object-cover transition-transform group-hover:scale-105"
                   />
                   <div className="absolute top-2 right-2">
                     <Badge className={`${
