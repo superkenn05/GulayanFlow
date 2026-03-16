@@ -1,7 +1,7 @@
 
 "use client"
 
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -42,6 +42,7 @@ export default function InventoryPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [open, setOpen] = useState(false)
+  const [localPreview, setLocalPreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   const db = useFirestore()
@@ -68,6 +69,13 @@ export default function InventoryPage() {
     carbs: '',
     fat: ''
   })
+
+  // Cleanup local preview URL to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (localPreview) URL.revokeObjectURL(localPreview)
+    }
+  }, [localPreview])
 
   const filteredProducts = products?.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -129,7 +137,11 @@ export default function InventoryPage() {
       return;
     }
 
+    // Show local preview immediately
+    const objectUrl = URL.createObjectURL(file);
+    setLocalPreview(objectUrl);
     setIsUploading(true);
+
     const uploadData = new FormData();
     uploadData.append('file', file);
     uploadData.append('upload_preset', uploadPreset);
@@ -158,6 +170,7 @@ export default function InventoryPage() {
         description: "Could not upload image to Cloudinary.",
         variant: "destructive"
       });
+      setLocalPreview(null); // Clear preview on failure
     } finally {
       setIsUploading(false);
     }
@@ -193,6 +206,7 @@ export default function InventoryPage() {
       
       toast({ title: "Success", description: `${formData.name} added to inventory.` })
       setOpen(false)
+      setLocalPreview(null)
       setFormData({
         name: '', description: '', categoryId: '', pricePerUnit: '', unitOfMeasure: 'kg',
         currentStockQuantity: '', lowStockThreshold: '10', imageUrl: '',
@@ -242,7 +256,10 @@ export default function InventoryPage() {
           <h1 className="text-3xl font-headline font-bold text-primary">Inventory</h1>
           <p className="text-muted-foreground">Manage your product catalog and current stock.</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(val) => {
+          setOpen(val)
+          if (!val) setLocalPreview(null)
+        }}>
           <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="h-4 w-4" /> Add Product
@@ -410,20 +427,44 @@ export default function InventoryPage() {
                         <div 
                           className={cn(
                             "relative h-48 w-full rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors overflow-hidden",
-                            formData.imageUrl ? "border-solid" : "border-muted"
+                            (formData.imageUrl || localPreview) ? "border-solid" : "border-muted"
                           )}
                           onClick={() => fileInputRef.current?.click()}
                         >
                           {isUploading ? (
-                            <div className="flex flex-col items-center gap-2">
-                              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                              <span className="text-xs text-muted-foreground">Uploading to Cloudinary...</span>
+                            <div className="relative h-full w-full flex items-center justify-center">
+                              {localPreview && (
+                                <Image 
+                                  src={localPreview} 
+                                  alt="Uploading preview" 
+                                  fill 
+                                  className="object-cover opacity-40"
+                                />
+                              )}
+                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/10">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                <span className="text-xs text-primary font-bold bg-white/80 px-2 py-1 rounded">Uploading...</span>
+                              </div>
                             </div>
                           ) : formData.imageUrl ? (
                             <>
                               <Image 
                                 src={formData.imageUrl} 
                                 alt="Preview" 
+                                fill 
+                                className="object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <Button type="button" variant="secondary" size="sm" className="gap-2">
+                                  <Upload className="h-4 w-4" /> Change Image
+                                </Button>
+                              </div>
+                            </>
+                          ) : localPreview ? (
+                            <>
+                              <Image 
+                                src={localPreview} 
+                                alt="Local Preview" 
                                 fill 
                                 className="object-cover"
                               />
@@ -459,7 +500,7 @@ export default function InventoryPage() {
                 </div>
               </ScrollArea>
               <DialogFooter className="mt-4">
-                <Button type="submit" className="w-full" disabled={isSaving}>
+                <Button type="submit" className="w-full" disabled={isSaving || isUploading}>
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Save Product
                 </Button>
