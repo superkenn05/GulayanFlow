@@ -54,7 +54,6 @@ export default function DashboardPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="outline">Print Reports</Button>
-          <Button>Add New Product</Button>
         </div>
       </div>
 
