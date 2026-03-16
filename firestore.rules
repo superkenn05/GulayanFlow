@@ -3,19 +3,15 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * GEMMA'S GULAYAN - SECURITY RULES PHILOSOPHY
+     * GEMMA'S GULAYAN - SECURITY RULES
      * 
-     * Role-Based Access Control (RBAC) with path-based ownership.
+     * Robust role-based access control focusing on authorization independence.
      */
 
     // --- Helper Functions ---
 
     function isSignedIn() {
       return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
     }
 
     function getStaffRole() {
@@ -35,30 +31,39 @@ service cloud.firestore {
     // --- Collection Rules ---
 
     match /staffUsers/{staffUserId} {
-      // Allow self-read and creation for registration. 
-      // Staff members can read each other to show names in transaction history.
-      allow get: if isOwner(staffUserId) || isStaff();
+      // Allow users to manage their own profiles (crucial for AuthInitializer)
+      allow get, create, update: if isSignedIn() && request.auth.uid == staffUserId;
+      
+      // Allow staff to view directory (e.g., for transaction attribution)
       allow list: if isStaff();
-      allow create: if isOwner(staffUserId);
-      allow update: if isOwner(staffUserId) || isAdmin();
+      allow get: if isStaff();
+      
+      // Admins can delete staff
       allow delete: if isAdmin();
     }
 
     match /categories/{categoryId} {
+      // Allow staff to manage categories
       allow read, write: if isStaff();
     }
 
     match /products/{productId} {
+      // Allow staff to manage products
       allow read, write: if isStaff();
     }
 
     match /stockTransactions/{transactionId} {
-      allow get, list: if isStaff();
+      // Allow staff to view transactions
+      allow read: if isStaff();
+      
+      // Allow staff to record their own transactions
       allow create: if isStaff() && request.resource.data.staffUserId == request.auth.uid;
+      
+      // Admins can modify/delete history (for corrections)
       allow update, delete: if isAdmin();
     }
 
-    // --- Global Deny ---
+    // Global deny for everything else
     match /{document=**} {
       allow read, write: if false;
     }

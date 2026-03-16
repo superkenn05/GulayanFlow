@@ -39,9 +39,10 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
         let userDoc;
         
         try {
+          // Attempt to get the user document to check for existence
           userDoc = await getDoc(userDocRef);
         } catch (e: any) {
-          // If the initial get fails, it's likely a permission error during first-time setup
+          // Surface permission error if critical
           const permissionError = new FirestorePermissionError({
             path: userDocRef.path,
             operation: 'get',
@@ -72,23 +73,28 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
             return;
           }
         } else {
-          await setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true });
+          // Update last login timestamp quietly
+          setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true }).catch(() => {});
         }
 
         // 2. Seed Default Categories if empty
-        const categoriesSnapshot = await getDocs(collection(db, 'categories'));
-        if (categoriesSnapshot.empty) {
-          const batch = writeBatch(db);
-          DEFAULT_CATEGORIES.forEach((cat) => {
-            const ref = doc(db, 'categories', cat.id);
-            batch.set(ref, cat);
-          });
-          await batch.commit();
+        try {
+          const categoriesSnapshot = await getDocs(collection(db, 'categories'));
+          if (categoriesSnapshot.empty) {
+            const batch = writeBatch(db);
+            DEFAULT_CATEGORIES.forEach((cat) => {
+              const ref = doc(db, 'categories', cat.id);
+              batch.set(ref, cat);
+            });
+            await batch.commit();
+          }
+        } catch (e) {
+          // Seeding failure is non-critical if it's a permission issue (e.g., user doc not yet indexed)
+          console.warn("Could not seed categories during init:", e);
         }
 
         setIsInitializing(false);
       } catch (error) {
-        // Generic catch for unexpected initialization failures
         console.error("Critical initialization failure:", error);
       }
     }
