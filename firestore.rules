@@ -5,7 +5,7 @@ service cloud.firestore {
     /**
      * GEMMA'S GULAYAN - SECURITY RULES
      * 
-     * Hierarchy: Superadmin > Admin > Staff
+     * Hierarchy: Superadmin (markken@gulayan.ph) > Admin > Staff
      */
 
     // --- Helper Functions ---
@@ -20,17 +20,18 @@ service cloud.firestore {
     }
 
     function isSuperadmin() {
-      return isSignedIn() && (getStaffRole() == 'Superadmin' || request.auth.token.email == 'markken@gulayan.ph');
+      // The email is the ultimate source of truth for the single Superadmin
+      return isSignedIn() && request.auth.token.email == 'markken@gulayan.ph';
     }
 
     function isAdmin() {
       let role = getStaffRole();
-      return isSignedIn() && (role == 'Admin' || role == 'Superadmin' || request.auth.token.email == 'markken@gulayan.ph');
+      return isSignedIn() && (role == 'Admin' || isSuperadmin());
     }
 
     function isStaff() {
       let role = getStaffRole();
-      return isSignedIn() && (role == 'Staff' || role == 'Admin' || role == 'Superadmin' || request.auth.token.email == 'markken@gulayan.ph');
+      return isSignedIn() && (role == 'Staff' || isAdmin());
     }
 
     // --- Collection Rules ---
@@ -39,10 +40,10 @@ service cloud.firestore {
       // Users can always read/update their own basic profile
       allow get, update: if isSignedIn() && request.auth.uid == staffUserId;
       
-      // Superadmins can manage all users (Admins and Staff)
+      // Only the Superadmin can manage the directory and assign roles
       allow read, write: if isSuperadmin();
       
-      // Admins can view the directory but not delete/promote other admins
+      // Admins can view the directory but not modify it
       allow list, get: if isAdmin();
     }
 

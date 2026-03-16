@@ -32,7 +32,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
         const userDocRef = doc(db, 'staffUsers', user.uid);
         const userDoc = await getDoc(userDocRef);
         
-        // Forced Superadmin check
+        // Forced Superadmin check: Only one specific email can ever be Superadmin
         const isSuperadminEmail = user.email === 'markken@gulayan.ph';
 
         if (!userDoc.exists()) {
@@ -49,9 +49,14 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
         } else {
           // Update last login and ensure role is correct for the superadmin email
           const updates: any = { lastLogin: serverTimestamp() };
-          if (isSuperadminEmail && userDoc.data()?.role !== 'Superadmin') {
+          
+          if (isSuperadminEmail) {
             updates.role = 'Superadmin';
+          } else if (userDoc.data()?.role === 'Superadmin') {
+            // Safety: Downgrade anyone else who somehow claimed Superadmin status
+            updates.role = 'Admin';
           }
+          
           await setDoc(userDocRef, updates, { merge: true });
         }
 

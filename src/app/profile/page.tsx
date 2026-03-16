@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -121,7 +120,7 @@ export default function ProfilePage() {
               <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
                 <Shield className="h-4 w-4 text-primary" />
               </div>
-              <span>
+              <span className="font-bold">
                 {profile?.role === 'Superadmin' 
                   ? 'Superadmin Access' 
                   : profile?.role === 'Admin' 

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { UserPlus, Shield, MoreVertical, Mail, Activity, Loader2, Trash2, Lock, Key, ShieldCheck } from "lucide-react"
+import { UserPlus, Shield, MoreVertical, Loader2, Trash2, Lock, Key, ShieldCheck } from "lucide-react"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -51,7 +51,8 @@ export default function AdminManagementPage() {
     password: ''
   })
 
-  const isSuperadmin = profile?.role === 'Superadmin' || user?.email === 'markken@gulayan.ph'
+  // The Single Superadmin check
+  const isSuperadmin = user?.email === 'markken@gulayan.ph'
   const isAdmin = profile?.role === 'Admin' || isSuperadmin
 
   const handleSaveStaff = async (e: React.FormEvent) => {
@@ -61,21 +62,17 @@ export default function AdminManagementPage() {
       return
     }
 
-    if (formData.password.length < 6) {
-      toast({ title: "Weak Password", description: "Minimum 6 characters.", variant: "destructive" })
-      return
-    }
-
     setIsSaving(true)
     try {
       const staffId = formData.email.replace(/[^a-zA-Z0-9]/g, '_')
       const staffRef = doc(db, 'staffUsers', staffId)
       
+      // Note: Only the Superadmin can create new entries here
       setDocumentNonBlocking(staffRef, {
         id: staffId,
         name: formData.name,
         email: formData.email,
-        role: formData.role,
+        role: formData.role === 'Superadmin' ? 'Admin' : formData.role, // Only one Superadmin allowed
         password: formData.password,
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
@@ -98,6 +95,7 @@ export default function AdminManagementPage() {
   }
 
   const handleRoleChange = (id: string, newRole: string) => {
+    // Only Superadmin can change roles
     updateDocumentNonBlocking(doc(db, 'staffUsers', id), { role: newRole })
     toast({ title: "Role Updated", description: `Staff role changed to ${newRole}.` })
   }
@@ -154,7 +152,6 @@ export default function AdminManagementPage() {
                       <SelectContent>
                         <SelectItem value="Staff">Staff</SelectItem>
                         <SelectItem value="Admin">Admin</SelectItem>
-                        {isSuperadmin && <SelectItem value="Superadmin">Superadmin</SelectItem>}
                       </SelectContent>
                     </Select>
                   </div>
@@ -182,9 +179,9 @@ export default function AdminManagementPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Staff</CardTitle>
-            <Activity className="h-4 w-4 text-primary" />
+            <Shield className="h-4 w-4 text-primary" />
           </CardHeader>
-          <CardContent><div className="text-2xl font-bold">{staff?.length || 0}</div></CardContent>
+          <CardContent><div className="text-2xl font-bold">{staff?.filter(s => s.role === 'Staff').length || 0}</div></CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -195,7 +192,7 @@ export default function AdminManagementPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Superadmins</CardTitle>
+            <CardTitle className="text-sm font-medium">Superadmin</CardTitle>
             <ShieldCheck className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent><div className="text-2xl font-bold">{staff?.filter(s => s.role === 'Superadmin').length || 0}</div></CardContent>
@@ -245,7 +242,6 @@ export default function AdminManagementPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Modify Role</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'Superadmin')}>Promote to Superadmin</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'Admin')}>Change to Admin</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'Staff')}>Demote to Staff</DropdownMenuItem>
                           <DropdownMenuSeparator />
