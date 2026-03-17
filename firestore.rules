@@ -9,7 +9,7 @@ service cloud.firestore {
     }
 
     function isSuperadmin() {
-      return isSignedIn() && request.auth.token.email == 'markken@gulayan.ph';
+      return isSignedIn() && (request.auth.token.email == 'markken@gulayan.ph');
     }
 
     function getStaffRole(uid) {
@@ -49,9 +49,11 @@ service cloud.firestore {
     }
 
     match /stockTransactions/{transactionId} {
-      // Accessible to all authorized staff for operations
-      allow read, create, update: if isSignedIn();
-      // Delete is restricted to Admins for audit integrity
+      // Explicitly allow list/get for signed in users
+      allow read: if isSignedIn();
+      // Allow creation and updates for movements
+      allow create, update: if isSignedIn();
+      // Delete is strictly restricted to Admins for audit integrity
       allow delete: if isAdmin();
     }
 

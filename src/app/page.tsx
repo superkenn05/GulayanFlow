@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useEffect, useState } from 'react'
@@ -28,14 +27,14 @@ export default function DashboardPage() {
   const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
   const { data: profile, isLoading: profileLoading } = useDoc(staffRef)
 
-  const productsQuery = useMemoFirebase(() => query(collection(db, 'products')), [db])
+  const productsQuery = useMemoFirebase(() => user ? query(collection(db, 'products')) : null, [db, user])
   const transactionsQuery = useMemoFirebase(() => 
-    query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(10)), 
-    [db]
+    user ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(10)) : null, 
+    [db, user]
   )
   const salesQuery = useMemoFirebase(() => 
-    query(collection(db, 'stockTransactions'), where('transactionType', '==', 'STOCK_OUT_SALE')), 
-    [db]
+    user ? query(collection(db, 'stockTransactions'), where('transactionType', '==', 'STOCK_OUT_SALE')) : null, 
+    [db, user]
   )
 
   const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
@@ -58,14 +57,14 @@ export default function DashboardPage() {
   const isAdmin = profile?.role === 'Admin' || isSuperadmin
 
   const totalProducts = products?.length || 0
-  const lowStockItems = products?.filter(p => p.currentStockQuantity <= p.lowStockThreshold && p.currentStockQuantity > 0).length || 0
-  const outOfStockItems = products?.filter(p => p.currentStockQuantity <= 0).length || 0
+  const lowStockItems = products?.filter(p => (p.currentStockQuantity || 0) <= (p.lowStockThreshold || 10) && (p.currentStockQuantity || 0) > 0).length || 0
+  const outOfStockItems = products?.filter(p => (p.currentStockQuantity || 0) <= 0).length || 0
   const totalOrders = sales?.length || 0
 
   const chartData = products?.slice(0, 10).map(p => ({
     name: p.name,
-    stock: p.currentStockQuantity,
-    fill: p.currentStockQuantity <= p.lowStockThreshold ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'
+    stock: p.currentStockQuantity || 0,
+    fill: (p.currentStockQuantity || 0) <= (p.lowStockThreshold || 10) ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'
   })) || []
 
   const pieData = [
@@ -75,7 +74,7 @@ export default function DashboardPage() {
   ].filter(d => d.value > 0)
 
   const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--destructive))']
-  const totalValue = products?.reduce((acc, p) => acc + (p.currentStockQuantity * (p.pricePerUnit || 0)), 0) || 0
+  const totalValue = products?.reduce((acc, p) => acc + ((p.currentStockQuantity || 0) * (p.pricePerUnit || 0)), 0) || 0
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -104,12 +103,12 @@ export default function DashboardPage() {
         </Card>
         <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Recent Sales</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
             <ShoppingBasket className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalOrders}</div>
-            <p className="text-xs text-muted-foreground">Recorded orders</p>
+            <p className="text-xs text-muted-foreground">Recorded sales</p>
           </CardContent>
         </Card>
         <Card className="hover:shadow-md transition-shadow border-red-100 bg-red-50/10">

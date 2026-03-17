@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react'
@@ -34,11 +33,11 @@ export default function StockTrackingPage() {
   const isSuperadmin = user?.email === 'markken@gulayan.ph'
   const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
-  const productsQuery = useMemoFirebase(() => query(collection(db, 'products'), orderBy('name', 'asc')), [db])
-  const transactionsQuery = useMemoFirebase(() => query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(50)), [db])
+  const productsQuery = useMemoFirebase(() => user ? query(collection(db, 'products'), orderBy('name', 'asc')) : null, [db, user])
+  const transactionsQuery = useMemoFirebase(() => user ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(50)) : null, [db, user])
   
   // Guard: Only fetch the staff directory if the user is an Admin/Superadmin to avoid permission errors
-  const staffQuery = useMemoFirebase(() => isAdmin ? query(collection(db, 'staffUsers')) : null, [db, isAdmin])
+  const staffQuery = useMemoFirebase(() => (user && isAdmin) ? query(collection(db, 'staffUsers')) : null, [db, user, isAdmin])
 
   const { data: products } = useCollection(productsQuery)
   const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery)

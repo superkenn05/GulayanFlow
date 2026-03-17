@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useEffect, useState } from 'react'
@@ -7,7 +6,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ShoppingBasket, Plus, Eye, MoreVertical, Loader2 } from "lucide-react"
-import { MOCK_ORDERS } from '../lib/mock-data'
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -27,15 +25,15 @@ export default function OrdersPage() {
   }, [])
 
   const salesQuery = useMemoFirebase(() => 
-    query(
+    user ? query(
       collection(db, 'stockTransactions'), 
       where('transactionType', '==', 'STOCK_OUT_SALE'),
       orderBy('transactionDate', 'desc'),
       limit(50)
-    ), 
-    [db]
+    ) : null, 
+    [db, user]
   )
-  const productsQuery = useMemoFirebase(() => query(collection(db, 'products')), [db])
+  const productsQuery = useMemoFirebase(() => user ? query(collection(db, 'products')) : null, [db, user])
 
   const { data: sales, isLoading: salesLoading } = useCollection(salesQuery)
   const { data: products } = useCollection(productsQuery)
