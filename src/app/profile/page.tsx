@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { User, Mail, Shield, LogOut, Save, Loader2 } from "lucide-react"
+import { User as UserIcon, Mail, Shield, LogOut, Save, Loader2 } from "lucide-react"
 import { useUser, useDoc, useFirestore, useMemoFirebase, useAuth } from '@/firebase'
 import { doc } from 'firebase/firestore'
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates'
@@ -31,14 +31,20 @@ export default function ProfilePage() {
   })
   const [isSaving, setIsSaving] = useState(false)
 
+  // Use Auth user as fallback if profile doc is missing or loading
   useEffect(() => {
     if (profile) {
       setFormData({
-        name: profile.name || '',
-        email: profile.email || ''
+        name: profile.name || user?.displayName || '',
+        email: profile.email || user?.email || ''
+      })
+    } else if (user) {
+      setFormData({
+        name: user.displayName || '',
+        email: user.email || ''
       })
     }
-  }, [profile])
+  }, [profile, user])
 
   const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin'
   const isAdmin = profile?.role === 'Admin' || isSuperadmin
@@ -86,7 +92,7 @@ export default function ProfilePage() {
     }
   }
 
-  if (isLoading) {
+  if (isLoading && !user) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
@@ -105,32 +111,32 @@ export default function ProfilePage() {
         <Card className="md:col-span-1 border-none shadow-md">
           <CardHeader className="flex flex-col items-center pb-0">
             <Avatar className="h-32 w-32 border-4 border-primary/10 shadow-lg">
-              <AvatarImage src={`https://picsum.photos/seed/${user?.uid}/400`} />
+              <AvatarImage src={user?.photoURL || `https://picsum.photos/seed/${user?.uid}/400`} />
               <AvatarFallback className="text-2xl font-bold bg-primary/5">
-                {profile?.name?.substring(0, 2).toUpperCase() || 'ST'}
+                {(profile?.name || user?.displayName || 'ST').substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <CardTitle className="text-2xl mt-4 text-center">{profile?.name || 'Staff Member'}</CardTitle>
+            <CardTitle className="text-2xl mt-4 text-center">
+              {profile?.name || user?.displayName || 'Staff Member'}
+            </CardTitle>
             
-            {isAdmin && (
-              <>
-                <Badge className="mt-2 bg-primary px-4 py-1">{profile?.role?.toUpperCase() || 'ADMIN'}</Badge>
-                <div className="mt-2">
-                  <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-tighter opacity-70">
-                    STATUS: {profile?.status || 'Active'}
-                  </Badge>
-                </div>
-              </>
-            )}
+            <div className="flex flex-col items-center gap-2 mt-2">
+              <Badge className="bg-primary px-4 py-1">
+                {(profile?.role || (isSuperadmin ? 'Superadmin' : 'Staff')).toUpperCase()}
+              </Badge>
+              <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-tighter opacity-70">
+                STATUS: {profile?.status || 'Active'}
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6 mt-8">
             <div className="flex items-center gap-3 text-sm font-medium">
               <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
                 <Mail className="h-4 w-4 text-primary" />
               </div>
-              <span className="truncate flex-1">{profile?.email}</span>
+              <span className="truncate flex-1">{profile?.email || user?.email}</span>
             </div>
-            {isAdmin && (
+            {(isAdmin || isSuperadmin) && (
               <div className="flex items-center gap-3 text-sm font-medium">
                 <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
                   <Shield className="h-4 w-4 text-primary" />
@@ -162,7 +168,7 @@ export default function ProfilePage() {
               <div className="space-y-2">
                 <Label htmlFor="name">Display Name</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <UserIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
                     id="name" 
                     value={formData.name} 
@@ -192,7 +198,7 @@ export default function ProfilePage() {
               <div className="border-t pt-8">
                 <h3 className="text-lg font-bold mb-2">Account Management</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Your role ({profile?.role}) and account status ({profile?.status}) are managed centrally by the Superadmin.
+                  Your role ({profile?.role || 'Admin'}) and account status ({profile?.status || 'Active'}) are managed centrally by the Superadmin.
                 </p>
               </div>
             )}
