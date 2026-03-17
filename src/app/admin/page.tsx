@@ -6,14 +6,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { UserPlus, Shield, MoreVertical, Loader2, Trash2, Lock, Key, ShieldCheck } from "lucide-react"
+import { UserPlus, Shield, MoreVertical, Loader2, Trash2, Lock, Key, ShieldCheck, UserCheck, UserX } from "lucide-react"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
   DropdownMenuItem, 
   DropdownMenuTrigger,
   DropdownMenuLabel,
-  DropdownMenuSeparator
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal
 } from "@/components/ui/dropdown-menu"
 import { 
   Dialog, 
@@ -23,7 +27,7 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogTrigger 
-} from "@/components/ui/dialog"
+} from "@/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -77,7 +81,7 @@ export default function AdminManagementPage() {
         password: formData.password,
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
-        status: 'pending' // Initial status is set automatically, not editable via UI
+        status: 'active' // Initial status
       }, { merge: true })
 
       toast({ title: "Staff Member Added", description: `${formData.name} has been pre-registered.` })
@@ -98,6 +102,11 @@ export default function AdminManagementPage() {
   const handleRoleChange = (id: string, newRole: string) => {
     updateDocumentNonBlocking(doc(db, 'staffUsers', id), { role: newRole })
     toast({ title: "Role Updated", description: `Staff role changed to ${newRole}.` })
+  }
+
+  const handleStatusChange = (id: string, newStatus: string) => {
+    updateDocumentNonBlocking(doc(db, 'staffUsers', id), { status: newStatus })
+    toast({ title: "Status Updated", description: `Account status changed to ${newStatus}.` })
   }
 
   if (isProfileLoading) {
@@ -249,9 +258,8 @@ export default function AdminManagementPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {/* Status is a read-only badge and cannot be edited via any UI action */}
                     <Badge variant={member.status === 'active' ? 'default' : 'outline'}>
-                      {member.status?.toUpperCase() || 'PENDING'}
+                      {member.status?.toUpperCase() || 'ACTIVE'}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
@@ -261,12 +269,39 @@ export default function AdminManagementPage() {
                           <Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Modify Role</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'Admin')}>Promote to Admin</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'Staff')}>Demote to Staff</DropdownMenuItem>
+                          <DropdownMenuLabel>Account Controls</DropdownMenuLabel>
+                          
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger className="gap-2">
+                              <Shield className="h-4 w-4" /> Change Role
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuPortal>
+                              <DropdownMenuSubContent>
+                                <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'Admin')}>Administrator</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'Staff')}>Staff Member</DropdownMenuItem>
+                              </DropdownMenuSubContent>
+                            </DropdownMenuPortal>
+                          </DropdownMenuSub>
+
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger className="gap-2">
+                              <UserCheck className="h-4 w-4" /> Modify Status
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuPortal>
+                              <DropdownMenuSubContent>
+                                <DropdownMenuItem onClick={() => handleStatusChange(member.id, 'active')} className="gap-2">
+                                  <UserCheck className="h-4 w-4 text-primary" /> Mark Active
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleStatusChange(member.id, 'inactive')} className="gap-2 text-destructive">
+                                  <UserX className="h-4 w-4" /> Mark Inactive
+                                </DropdownMenuItem>
+                              </DropdownMenuSubContent>
+                            </DropdownMenuPortal>
+                          </DropdownMenuSub>
+
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteStaff(member.id, member.name)}>
-                            <Trash2 className="h-4 w-4 mr-2" /> Remove Account
+                          <DropdownMenuItem className="text-destructive gap-2" onClick={() => handleDeleteStaff(member.id, member.name)}>
+                            <Trash2 className="h-4 w-4" /> Remove Account
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
