@@ -52,23 +52,22 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
           
           if (isSuperadminEmail) {
             updates.role = 'Superadmin';
-          } else if (userDoc.data()?.role === 'Superadmin') {
-            // Safety: Downgrade anyone else who somehow claimed Superadmin status
-            updates.role = 'Admin';
           }
           
           await setDoc(userDocRef, updates, { merge: true });
         }
 
-        // Seed Categories if empty
-        const categoriesSnapshot = await getDocs(collection(db, 'categories'));
-        if (categoriesSnapshot.empty) {
-          const batch = writeBatch(db);
-          DEFAULT_CATEGORIES.forEach((cat) => {
-            const ref = doc(db, 'categories', cat.id);
-            batch.set(ref, cat);
-          });
-          await batch.commit();
+        // Only the Superadmin should attempt to seed categories to avoid permission errors for regular staff
+        if (isSuperadminEmail) {
+          const categoriesSnapshot = await getDocs(collection(db, 'categories'));
+          if (categoriesSnapshot.empty) {
+            const batch = writeBatch(db);
+            DEFAULT_CATEGORIES.forEach((cat) => {
+              const ref = doc(db, 'categories', cat.id);
+              batch.set(ref, cat);
+            });
+            await batch.commit();
+          }
         }
 
         setIsInitializing(false);

@@ -32,8 +32,8 @@ service cloud.firestore {
     // --- Collection Rules ---
 
     match /staffUsers/{staffUserId} {
-      // Allow GET for activation (by email-id) and identification. 
-      allow get: if true;
+      // Allow GET for identification (needed for profile page and sidebar)
+      allow get: if isSignedIn();
       
       // Users can update their own basic profile
       allow update: if isSignedIn() && request.auth.uid == staffUserId;

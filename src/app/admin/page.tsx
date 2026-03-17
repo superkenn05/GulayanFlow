@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react'
@@ -46,7 +45,11 @@ export default function AdminManagementPage() {
   const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
   const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
   
-  const staffQuery = useMemoFirebase(() => query(collection(db, 'staffUsers'), orderBy('createdAt', 'desc')), [db])
+  // Guard query: only attempt to list staff if the user is an admin or superadmin
+  const isSuperadmin = user?.email === 'markken@gulayan.ph'
+  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
+
+  const staffQuery = useMemoFirebase(() => isAdmin ? query(collection(db, 'staffUsers'), orderBy('createdAt', 'desc')) : null, [db, isAdmin])
   const { data: staff, isLoading } = useCollection(staffQuery)
 
   const [formData, setFormData] = useState({
@@ -55,10 +58,6 @@ export default function AdminManagementPage() {
     role: 'Staff',
     password: ''
   })
-
-  // The Single Superadmin check
-  const isSuperadmin = user?.email === 'markken@gulayan.ph'
-  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
   const handleSaveStaff = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -69,7 +68,6 @@ export default function AdminManagementPage() {
 
     setIsSaving(true)
     try {
-      // Create a unique ID for the placeholder document based on email
       const staffDocId = formData.email.replace(/[^a-zA-Z0-9]/g, '_')
       const staffDocRef = doc(db, 'staffUsers', staffDocId)
       
@@ -81,7 +79,7 @@ export default function AdminManagementPage() {
         password: formData.password,
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
-        status: 'active' // Initial status
+        status: 'active'
       }, { merge: true })
 
       toast({ title: "Staff Member Added", description: `${formData.name} has been pre-registered.` })
@@ -148,9 +146,8 @@ export default function AdminManagementPage() {
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
                     <Label htmlFor="name">Full Name</Label>
-                    <input 
+                    <Input 
                       id="name" 
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       placeholder="Juan Dela Cruz" 
                       required 
                       value={formData.name} 
@@ -159,10 +156,9 @@ export default function AdminManagementPage() {
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="email">Email Address</Label>
-                    <input 
+                    <Input 
                       id="email" 
                       type="email" 
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       placeholder="juan@gulayan.ph" 
                       required 
                       value={formData.email} 
@@ -240,7 +236,9 @@ export default function AdminManagementPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {staff?.map((member) => (
+              {isLoading ? (
+                <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="h-8 w-8 animate-spin mx-auto opacity-20" /></TableCell></TableRow>
+              ) : staff?.map((member) => (
                 <TableRow key={member.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
