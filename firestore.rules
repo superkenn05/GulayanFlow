@@ -6,6 +6,7 @@ service cloud.firestore {
      * GEMMA'S GULAYAN - SECURITY RULES
      * 
      * Hierarchy: Superadmin (markken@gulayan.ph) > Admin > Staff
+     * Note: Staff permissions removed as per request.
      */
 
     // --- Helper Functions ---
@@ -28,16 +29,10 @@ service cloud.firestore {
       return isSignedIn() && (role == 'Admin' || role == 'Superadmin' || isSuperadmin());
     }
 
-    function isStaff() {
-      let role = getStaffRole();
-      return isSignedIn() && (role == 'Staff' || isAdmin());
-    }
-
     // --- Collection Rules ---
 
     match /staffUsers/{staffUserId} {
       // Allow GET for activation (by email-id) and identification. 
-      // Only allow public GET, not LIST, to protect privacy.
       allow get: if true;
       
       // Users can update their own basic profile
@@ -51,19 +46,18 @@ service cloud.firestore {
     }
 
     match /categories/{categoryId} {
-      allow read: if isSignedIn();
-      allow write: if isStaff();
+      // Restricted to Admin only
+      allow read, write: if isAdmin();
     }
 
     match /products/{productId} {
-      allow read: if isSignedIn();
-      allow write: if isStaff();
+      // Restricted to Admin only
+      allow read, write: if isAdmin();
     }
 
     match /stockTransactions/{transactionId} {
-      allow read: if isStaff();
-      allow create: if isStaff();
-      allow update, delete: if isAdmin();
+      // Restricted to Admin only
+      allow read, create, update, delete: if isAdmin();
     }
 
     // Global deny for everything else

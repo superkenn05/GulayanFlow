@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Package, AlertTriangle, ArrowUpRight, ArrowDownRight, TrendingUp, ShoppingBag, Loader2 } from "lucide-react"
+import { Package, AlertTriangle, ArrowUpRight, ArrowDownRight, TrendingUp, ShoppingBag, Loader2, Lock } from "lucide-react"
 import {
   BarChart,
   Bar,
@@ -27,13 +27,14 @@ export default function DashboardPage() {
   const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
   const { data: profile, isLoading: profileLoading } = useDoc(staffRef)
 
-  // Wait until profile and role are confirmed before querying sensitive data
-  const hasAccess = !!profile?.role;
+  // Superadmin check
+  const isSuperadmin = user?.email === 'markken@gulayan.ph'
+  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
-  const productsQuery = useMemoFirebase(() => hasAccess ? query(collection(db, 'products')) : null, [db, hasAccess])
+  const productsQuery = useMemoFirebase(() => isAdmin ? query(collection(db, 'products')) : null, [db, isAdmin])
   const transactionsQuery = useMemoFirebase(() => 
-    hasAccess ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(5)) : null, 
-    [db, hasAccess]
+    isAdmin ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(5)) : null, 
+    [db, isAdmin]
   )
 
   const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
@@ -43,10 +44,21 @@ export default function DashboardPage() {
     setMounted(true)
   }, [])
 
-  if (!mounted || profileLoading || (user && !profile)) {
+  if (!mounted || profileLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+      </div>
+    )
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
+        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center text-muted-foreground"><Lock className="h-8 w-8" /></div>
+        <h2 className="text-2xl font-headline font-bold">Account Restricted</h2>
+        <p className="text-muted-foreground max-w-sm">Welcome, {profile?.name || 'Staff'}. Your account currently has no active permissions. Please contact an administrator for access.</p>
+        <Button asChild variant="outline" size="sm"><a href="/profile">Go to Profile</a></Button>
       </div>
     )
   }
@@ -125,12 +137,7 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {!hasAccess ? (
-        <Card className="p-12 flex flex-col items-center justify-center text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-          <p className="text-muted-foreground">Verifying staff permissions...</p>
-        </Card>
-      ) : productsLoading || transactionsLoading ? (
+      {productsLoading || transactionsLoading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
         </div>
