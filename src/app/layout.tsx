@@ -5,7 +5,6 @@ import { AppSidebar } from "@/components/layout/AppSidebar"
 import { Toaster } from "@/components/ui/toaster"
 import { FirebaseClientProvider } from '@/firebase';
 import { Separator } from '@/components/ui/separator';
-import { AuthInitializer } from '@/components/AuthInitializer';
 
 export const metadata: Metadata = {
   title: 'GulayanFlow | Gemma\'s Gulayan Inventory',
@@ -26,10 +25,8 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased bg-background text-foreground">
         <FirebaseClientProvider>
-          <AuthInitializer>
-            <LayoutContent>{children}</LayoutContent>
-            <Toaster />
-          </AuthInitializer>
+          <LayoutContent>{children}</LayoutContent>
+          <Toaster />
         </FirebaseClientProvider>
       </body>
     </html>
@@ -42,9 +39,6 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <SidebarInset>
-          {/* Header is handled conditionally via a wrapper that checks current route if needed, 
-              but simplified here: Sidebar itself hides on Login, 
-              we can hide the header elements too for a cleaner experience */}
           <HeaderWrapper>
             <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 md:px-6">
               <SidebarTrigger className="-ml-1" />
