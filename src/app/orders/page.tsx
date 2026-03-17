@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useEffect, useState } from 'react'
@@ -13,8 +14,8 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase'
-import { doc } from 'firebase/firestore'
+import { useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase'
+import { collection, query, where, orderBy, limit } from 'firebase/firestore'
 
 export default function OrdersPage() {
   const [mounted, setMounted] = useState(false)
@@ -25,6 +26,20 @@ export default function OrdersPage() {
     setMounted(true)
   }, [])
 
+  const salesQuery = useMemoFirebase(() => 
+    query(
+      collection(db, 'stockTransactions'), 
+      where('transactionType', '==', 'STOCK_OUT_SALE'),
+      orderBy('transactionDate', 'desc'),
+      limit(50)
+    ), 
+    [db]
+  )
+  const productsQuery = useMemoFirebase(() => query(collection(db, 'products')), [db])
+
+  const { data: sales, isLoading: salesLoading } = useCollection(salesQuery)
+  const { data: products } = useCollection(productsQuery)
+
   return (
     <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -32,7 +47,7 @@ export default function OrdersPage() {
           <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-2">
             Orders <ShoppingBasket className="h-6 w-6" />
           </h1>
-          <p className="text-muted-foreground">Track sales and customer transactions.</p>
+          <p className="text-muted-foreground">Track sales and customer transactions recorded in the system.</p>
         </div>
         <Button className="gap-2">
           <Plus className="h-4 w-4" /> New Sale
@@ -41,53 +56,72 @@ export default function OrdersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Sales</CardTitle>
-          <CardDescription>A list of all customer transactions registered in the system.</CardDescription>
+          <CardTitle>Recent Sales History</CardTitle>
+          <CardDescription>A live list of all sales recorded via stock movements.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Order ID</TableHead>
-                <TableHead>Customer</TableHead>
+                <TableHead>Product</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead>Total</TableHead>
+                <TableHead>Quantity</TableHead>
+                <TableHead>Total (Est.)</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {MOCK_ORDERS.map((order) => (
-                <TableRow key={order.id}>
-                  <TableCell className="font-mono text-xs">{order.id}</TableCell>
-                  <TableCell className="font-medium">{order.customerName}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {mounted ? new Date(order.date).toLocaleString() : ""}
-                  </TableCell>
-                  <TableCell className="font-bold text-primary">₱{order.total}</TableCell>
-                  <TableCell>
-                    <Badge variant={
-                      order.status === 'completed' ? 'default' : 
-                      order.status === 'pending' ? 'secondary' : 'destructive'
-                    }>
-                      {order.status.toUpperCase()}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="gap-2"><Eye className="h-4 w-4" /> View Details</DropdownMenuItem>
-                        <DropdownMenuItem className="text-primary font-bold">Print Receipt</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+              {sales?.map((sale) => {
+                const product = products?.find(p => p.id === sale.productId)
+                const total = Math.abs(sale.quantityChange) * (sale.unitCostAtTransaction || product?.pricePerUnit || 0)
+                
+                return (
+                  <TableRow key={sale.id}>
+                    <TableCell className="font-mono text-xs">{sale.id.substring(0, 8)}</TableCell>
+                    <TableCell className="font-medium">{product?.name || 'Unknown'}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {mounted && sale.transactionDate ? new Date(sale.transactionDate.toDate()).toLocaleString() : ""}
+                    </TableCell>
+                    <TableCell className="font-bold">
+                      {Math.abs(sale.quantityChange)} {product?.unitOfMeasure || 'unit'}
+                    </TableCell>
+                    <TableCell className="font-bold text-primary">₱{total.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Badge variant="default">COMPLETED</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem className="gap-2"><Eye className="h-4 w-4" /> View Details</DropdownMenuItem>
+                          <DropdownMenuItem className="text-primary font-bold">Print Receipt</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+              {salesLoading && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-10 opacity-50">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                    Loading orders...
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
+              {!salesLoading && sales?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-10 text-muted-foreground italic">
+                    No sales recorded yet. Try adding a "Stock Out (Sale)" from the Stock Tracking page.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

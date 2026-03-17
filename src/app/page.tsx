@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Package, AlertTriangle, ArrowUpRight, ArrowDownRight, TrendingUp, ShoppingBag, Loader2 } from "lucide-react"
+import { Package, AlertTriangle, ArrowUpRight, ArrowDownRight, TrendingUp, ShoppingBag, Loader2, ShoppingBasket } from "lucide-react"
 import {
   BarChart,
   Bar,
@@ -18,7 +18,7 @@ import {
   Pie
 } from 'recharts'
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
-import { collection, query, orderBy, limit, doc } from 'firebase/firestore'
+import { collection, query, orderBy, limit, doc, where } from 'firebase/firestore'
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
@@ -30,12 +30,17 @@ export default function DashboardPage() {
 
   const productsQuery = useMemoFirebase(() => query(collection(db, 'products')), [db])
   const transactionsQuery = useMemoFirebase(() => 
-    query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(5)), 
+    query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(10)), 
+    [db]
+  )
+  const salesQuery = useMemoFirebase(() => 
+    query(collection(db, 'stockTransactions'), where('transactionType', '==', 'STOCK_OUT_SALE')), 
     [db]
   )
 
   const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
   const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery)
+  const { data: sales } = useCollection(salesQuery)
 
   useEffect(() => {
     setMounted(true)
@@ -51,11 +56,11 @@ export default function DashboardPage() {
 
   const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin'
   const isAdmin = profile?.role === 'Admin' || isSuperadmin
-  const isStaff = profile?.role === 'Staff'
 
   const totalProducts = products?.length || 0
   const lowStockItems = products?.filter(p => p.currentStockQuantity <= p.lowStockThreshold && p.currentStockQuantity > 0).length || 0
   const outOfStockItems = products?.filter(p => p.currentStockQuantity <= 0).length || 0
+  const totalOrders = sales?.length || 0
 
   const chartData = products?.slice(0, 10).map(p => ({
     name: p.name,
@@ -79,7 +84,7 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-headline font-bold text-primary">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back{profile?.name ? `, ${profile.name}` : ''}! Here's what's happening today.</p>
         </div>
-        {!isStaff && (
+        {isAdmin && (
           <div className="flex gap-2">
             <Button variant="outline">Print Reports</Button>
           </div>
@@ -97,6 +102,16 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">Active in catalog</p>
           </CardContent>
         </Card>
+        <Card className="hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Recent Sales</CardTitle>
+            <ShoppingBasket className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalOrders}</div>
+            <p className="text-xs text-muted-foreground">Recorded orders</p>
+          </CardContent>
+        </Card>
         <Card className="hover:shadow-md transition-shadow border-red-100 bg-red-50/10">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-destructive">Low Stock</CardTitle>
@@ -107,18 +122,8 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">Action required</p>
           </CardContent>
         </Card>
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
-            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{outOfStockItems}</div>
-            <p className="text-xs text-muted-foreground">Unavailable items</p>
-          </CardContent>
-        </Card>
         
-        {isAdmin && (
+        {isAdmin ? (
           <Card className="hover:shadow-md transition-shadow bg-primary/5">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Inventory Value</CardTitle>
@@ -127,6 +132,17 @@ export default function DashboardPage() {
             <CardContent>
               <div className="text-2xl font-bold">₱{totalValue.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">Estimated total</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
+              <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{outOfStockItems}</div>
+              <p className="text-xs text-muted-foreground">Unavailable items</p>
             </CardContent>
           </Card>
         )}
