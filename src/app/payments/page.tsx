@@ -14,14 +14,25 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase'
+import { doc } from 'firebase/firestore'
 
 export default function PaymentManagementPage() {
   const [payments, setPayments] = useState(MOCK_PAYMENTS)
   const [mounted, setMounted] = useState(false)
+  
+  const db = useFirestore()
+  const { user } = useUser()
+
+  const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
+  const { data: profile } = useDoc(staffRef)
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  const isSuperadmin = user?.email === 'markken@gulayan.ph'
+  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
   const totalIncome = payments
     .filter(p => p.type === 'income' && p.status === 'successful')
@@ -41,47 +52,51 @@ export default function PaymentManagementPage() {
           <p className="text-muted-foreground">Track sales income and supplier payments.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
-            <Download className="h-4 w-4" /> Export
-          </Button>
+          {isAdmin && (
+            <Button variant="outline" className="gap-2">
+              <Download className="h-4 w-4" /> Export
+            </Button>
+          )}
           <Button className="gap-2">
             <Plus className="h-4 w-4" /> Record Payment
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-green-50/30 border-green-100">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-green-700">Total Income</CardTitle>
-            <ArrowUpCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-700">₱{totalIncome.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Successful customer payments</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-red-50/30 border-red-100">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-red-700">Total Expenses</CardTitle>
-            <ArrowDownCircle className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-700">₱{totalExpenses.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Payments to suppliers</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Net Flow</CardTitle>
-            <CreditCard className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₱{(totalIncome - totalExpenses).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Current month performance</p>
-          </CardContent>
-        </Card>
-      </div>
+      {isAdmin && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="bg-green-50/30 border-green-100">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-green-700">Total Income</CardTitle>
+              <ArrowUpCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-700">₱{totalIncome.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Successful customer payments</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-red-50/30 border-red-100">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-red-700">Total Expenses</CardTitle>
+              <ArrowDownCircle className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-700">₱{totalExpenses.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Payments to suppliers</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Net Flow</CardTitle>
+              <CreditCard className="h-4 w-4 text-primary" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">₱{(totalIncome - totalExpenses).toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Current month performance</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -109,7 +124,7 @@ export default function PaymentManagementPage() {
             <TableBody>
               {payments.map((payment) => (
                 <TableRow key={payment.id}>
-                  <TableCell className="text-sm">
+                  <TableCell className="text-sm text-nowrap">
                     {mounted ? new Date(payment.date).toLocaleDateString() : ""}
                   </TableCell>
                   <TableCell>
