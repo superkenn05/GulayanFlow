@@ -53,12 +53,12 @@ export default function LoginPage() {
       })
       router.push('/')
     } catch (err: any) {
-      // 2. Handle Activation (Bridge)
-      const isCredentialError = err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password';
+      // 2. Handle Activation or Errors
+      const isAuthError = err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password';
       
-      if (isCredentialError) {
+      if (isAuthError) {
         try {
-          // Special case for the requested Superadmin credentials
+          // Special case for the hardcoded Superadmin account
           if (email === 'markken@gulayan.ph' && password === 'admin123456789') {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password)
             await updateProfile(userCredential.user, { displayName: 'Mark Ken (Superadmin)' })
@@ -81,7 +81,7 @@ export default function LoginPage() {
             return
           }
 
-          // General Staff Activation - Use direct document lookup instead of query
+          // General Staff Activation Lookup
           const staffDocId = email.replace(/[^a-zA-Z0-9]/g, '_')
           const staffDocRef = doc(db, 'staffUsers', staffDocId)
           const staffSnapshot = await getDoc(staffDocRef)
@@ -89,6 +89,7 @@ export default function LoginPage() {
           if (staffSnapshot.exists()) {
             const staffData = staffSnapshot.data()
 
+            // Verify temporary password stored in the placeholder doc
             if (staffData.password === password) {
               if (password.length < 6) {
                 setError("Password must be at least 6 characters.")
@@ -96,24 +97,26 @@ export default function LoginPage() {
                 return
               }
 
+              // Create the official Firebase Auth user
               const userCredential = await createUserWithEmailAndPassword(auth, email, password)
               await updateProfile(userCredential.user, { displayName: staffData.name })
 
+              // Migrate placeholder data to the new UID-based document
               const batch = writeBatch(db)
               const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
               
+              const { password: _, ...dataToSave } = staffData // Remove temp password from permanent doc
+              
               batch.set(newUserRef, {
-                ...staffData,
+                ...dataToSave,
                 id: userCredential.user.uid,
                 lastLogin: serverTimestamp(),
                 status: 'active',
                 updatedAt: serverTimestamp()
               })
 
-              // Delete the placeholder doc (email-based ID) if it's different from the UID
-              if (staffSnapshot.id !== userCredential.user.uid) {
-                batch.delete(staffDocRef)
-              }
+              // Clean up the placeholder
+              batch.delete(staffDocRef)
 
               await batch.commit()
               toast({ title: "Account Activated", description: `Welcome, ${staffData.name}!` })
@@ -122,7 +125,7 @@ export default function LoginPage() {
             }
           }
         } catch (dbErr: any) {
-          console.error("Activation error:", dbErr)
+          console.error("Activation process error:", dbErr)
           if (dbErr.code === 'auth/email-already-in-use') {
             setError("This email is already registered. Please check your password.")
             setIsLoading(false)
@@ -131,7 +134,7 @@ export default function LoginPage() {
         }
       }
 
-      setError("Invalid email or password.")
+      setError("Invalid email or password. If you are a new staff, please use the credentials provided by your manager.")
       toast({
         variant: "destructive",
         title: "Login Failed",

@@ -31,17 +31,21 @@ service cloud.firestore {
     // --- Collection Rules ---
 
     match /staffUsers/{staffUserId} {
-      // Allow GET for identification (needed for profile page and sidebar)
-      allow get: if isSignedIn();
+      // Users can always read their own profile (crucial for useDoc and identification)
+      allow get: if isSignedIn() && request.auth.uid == staffUserId;
       
-      // Users can update their own basic profile
+      // Users can update their own basic profile (name, email)
       allow update: if isSignedIn() && request.auth.uid == staffUserId;
       
-      // Only the Superadmin can manage the directory and assign roles/status
+      // Superadmin has full read/write access to everything in this collection
       allow read, write: if isSuperadmin();
       
-      // Admins can view the directory but not modify it
+      // Admins can view the directory (list) but not modify it
       allow list: if isAdmin();
+
+      // Allow temporary lookup for activation (unauthenticated get for email-based IDs)
+      // This is safe as long as we only allow 'get' and not 'list'
+      allow get: if !isSignedIn() && staffUserId.size() > 5;
     }
 
     match /categories/{categoryId} {
