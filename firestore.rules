@@ -45,18 +45,20 @@ service cloud.firestore {
     }
 
     match /categories/{categoryId} {
-      // Restricted to Admin and Superadmin only. Staff removed.
-      allow read, write: if isAdmin();
+      // Accessible to all authorized staff for operations
+      allow read, write: if isSignedIn();
     }
 
     match /products/{productId} {
-      // Restricted to Admin and Superadmin only. Staff removed.
-      allow read, write: if isAdmin();
+      // Accessible to all authorized staff for operations
+      allow read, write: if isSignedIn();
     }
 
     match /stockTransactions/{transactionId} {
-      // Restricted to Admin and Superadmin only. Staff removed.
-      allow read, create, update, delete: if isAdmin();
+      // Accessible to all authorized staff for operations
+      allow read, create, update: if isSignedIn();
+      // Delete is restricted to Admins for audit integrity
+      allow delete: if isAdmin();
     }
 
     // Global deny for everything else

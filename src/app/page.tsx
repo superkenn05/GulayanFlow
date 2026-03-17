@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Package, AlertTriangle, ArrowUpRight, ArrowDownRight, TrendingUp, ShoppingBag, Loader2, Lock, UserCircle } from "lucide-react"
+import { Package, AlertTriangle, ArrowUpRight, ArrowDownRight, TrendingUp, ShoppingBag, Loader2 } from "lucide-react"
 import {
   BarChart,
   Bar,
@@ -27,14 +27,10 @@ export default function DashboardPage() {
   const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
   const { data: profile, isLoading: profileLoading } = useDoc(staffRef)
 
-  // Consistent Admin/Superadmin check
-  const isSuperadmin = user?.email === 'markken@gulayan.ph'
-  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
-
-  const productsQuery = useMemoFirebase(() => isAdmin ? query(collection(db, 'products')) : null, [db, isAdmin])
+  const productsQuery = useMemoFirebase(() => query(collection(db, 'products')), [db])
   const transactionsQuery = useMemoFirebase(() => 
-    isAdmin ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(5)) : null, 
-    [db, isAdmin]
+    query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(5)), 
+    [db]
   )
 
   const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
@@ -44,7 +40,7 @@ export default function DashboardPage() {
     setMounted(true)
   }, [])
 
-  if (!mounted || profileLoading) {
+  if (!mounted || profileLoading || productsLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
@@ -52,32 +48,6 @@ export default function DashboardPage() {
     )
   }
 
-  // Staff Restricted View
-  if (!isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[70vh] text-center space-y-6 animate-in fade-in duration-700">
-        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center text-primary">
-          <UserCircle className="h-10 w-10" />
-        </div>
-        <div className="space-y-2">
-          <h1 className="text-3xl font-headline font-bold">Welcome, {profile?.name || 'Staff Member'}!</h1>
-          <p className="text-muted-foreground max-w-md mx-auto">
-            You are logged into the GulayanFlow system. Your account currently has limited access to operational data.
-          </p>
-        </div>
-        <div className="flex gap-4">
-          <Button asChild variant="default" size="lg" className="px-8 shadow-lg">
-            <a href="/profile">View My Profile</a>
-          </Button>
-          <Button variant="outline" size="lg" onClick={() => window.location.reload()}>
-            Refresh Session
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  // Admin/Superadmin View
   const totalProducts = products?.length || 0
   const lowStockItems = products?.filter(p => p.currentStockQuantity <= p.lowStockThreshold && p.currentStockQuantity > 0).length || 0
   const outOfStockItems = products?.filter(p => p.currentStockQuantity <= 0).length || 0
@@ -152,129 +122,125 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {productsLoading || transactionsLoading ? (
-        <div className="flex justify-center py-20">
-          <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
-            <Card className="lg:col-span-4">
-              <CardHeader>
-                <CardTitle>Current Stock Levels</CardTitle>
-                <CardDescription>Top products and their current quantities</CardDescription>
-              </CardHeader>
-              <CardContent className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
-                    <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                    <Tooltip
-                      cursor={{ fill: 'transparent' }}
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-background border p-2 rounded-lg shadow-sm text-xs">
-                              <p className="font-bold">{payload[0].payload.name}</p>
-                              <p className="text-primary">{payload[0].value} units</p>
-                            </div>
-                          )
-                        }
-                        return null;
-                      }}
-                    />
-                    <Bar dataKey="stock" radius={[4, 4, 0, 0]}>
-                      {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card className="lg:col-span-3">
-              <CardHeader>
-                <CardTitle>Inventory Health</CardTitle>
-                <CardDescription>Product status distribution</CardDescription>
-              </CardHeader>
-              <CardContent className="h-[300px] flex items-center justify-center relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="absolute flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-2xl font-bold">{totalProducts}</span>
-                  <span className="text-xs text-muted-foreground text-center">Items<br/>Monitored</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Latest stock movements across all categories</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {transactions?.map((t) => {
-                  const product = products?.find(p => p.id === t.productId)
-                  return (
-                    <div key={t.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-full ${
-                          t.quantityChange > 0 ? 'bg-green-100 text-green-700' :
-                          t.transactionType === 'STOCK_OUT_SALE' ? 'bg-blue-100 text-blue-700' :
-                          'bg-red-100 text-red-700'
-                        }`}>
-                          {t.quantityChange > 0 ? <ArrowUpRight className="h-4 w-4" /> :
-                           t.transactionType === 'STOCK_OUT_SALE' ? <ArrowDownRight className="h-4 w-4" /> :
-                           <AlertTriangle className="h-4 w-4" />}
+      <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
+        <Card className="lg:col-span-4">
+          <CardHeader>
+            <CardTitle>Current Stock Levels</CardTitle>
+            <CardDescription>Top products and their current quantities</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} />
+                <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip
+                  cursor={{ fill: 'transparent' }}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="bg-background border p-2 rounded-lg shadow-sm text-xs">
+                          <p className="font-bold">{payload[0].payload.name}</p>
+                          <p className="text-primary">{payload[0].value} units</p>
                         </div>
-                        <div>
-                          <p className="font-medium">{product?.name || 'Unknown Product'}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {mounted && t.transactionDate ? new Date(t.transactionDate.toDate()).toLocaleString() : "Processing..."}
-                          </p>
-                        </div>
+                      )
+                    }
+                    return null;
+                  }}
+                />
+                <Bar dataKey="stock" radius={[4, 4, 0, 0]}>
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle>Inventory Health</CardTitle>
+            <CardDescription>Product status distribution</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[300px] flex items-center justify-center relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-2xl font-bold">{totalProducts}</span>
+              <span className="text-xs text-muted-foreground text-center">Items<br/>Monitored</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>Latest stock movements across all categories</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {transactionsLoading ? (
+            <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin opacity-20" /></div>
+          ) : (
+            <div className="space-y-4">
+              {transactions?.map((t) => {
+                const product = products?.find(p => p.id === t.productId)
+                return (
+                  <div key={t.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-full ${
+                        t.quantityChange > 0 ? 'bg-green-100 text-green-700' :
+                        t.transactionType === 'STOCK_OUT_SALE' ? 'bg-blue-100 text-blue-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {t.quantityChange > 0 ? <ArrowUpRight className="h-4 w-4" /> :
+                         t.transactionType === 'STOCK_OUT_SALE' ? <ArrowDownRight className="h-4 w-4" /> :
+                         <AlertTriangle className="h-4 w-4" />}
                       </div>
-                      <div className="text-right">
-                        <p className={`font-bold ${
-                          t.quantityChange > 0 ? 'text-green-600' :
-                          t.transactionType === 'STOCK_OUT_SALE' ? 'text-blue-600' :
-                          'text-red-600'
-                        }`}>
-                          {t.quantityChange > 0 ? '+' : ''}{t.quantityChange} {product?.unitOfMeasure || ''}
+                      <div>
+                        <p className="font-medium">{product?.name || 'Unknown Product'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {mounted && t.transactionDate ? new Date(t.transactionDate.toDate()).toLocaleString() : "Processing..."}
                         </p>
-                        <p className="text-xs text-muted-foreground">Audit ID: {t.id.substring(0, 6)}</p>
                       </div>
                     </div>
-                  )
-                })}
-                {!transactions?.length && (
-                  <p className="text-center text-sm text-muted-foreground py-4">No recent activity recorded.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
+                    <div className="text-right">
+                      <p className={`font-bold ${
+                        t.quantityChange > 0 ? 'text-green-600' :
+                        t.transactionType === 'STOCK_OUT_SALE' ? 'text-blue-600' :
+                        'text-red-600'
+                      }`}>
+                        {t.quantityChange > 0 ? '+' : ''}{t.quantityChange} {product?.unitOfMeasure || ''}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Audit ID: {t.id.substring(0, 6)}</p>
+                    </div>
+                  </div>
+                )
+              })}
+              {!transactions?.length && (
+                <p className="text-center text-sm text-muted-foreground py-4">No recent activity recorded.</p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

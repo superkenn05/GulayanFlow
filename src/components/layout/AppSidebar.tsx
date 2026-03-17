@@ -36,14 +36,14 @@ import { doc } from "firebase/firestore"
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Inventory", url: "/inventory", icon: Package, adminOnly: true },
-  { title: "Orders", url: "/orders", icon: ShoppingBasket, adminOnly: true },
-  { title: "Payments", url: "/payments", icon: CreditCard, adminOnly: true },
-  { title: "Stock Tracking", url: "/stock", icon: History, adminOnly: true },
-  { title: "Categories", url: "/categories", icon: Tags, adminOnly: true },
-  { title: "Suppliers", url: "/suppliers", icon: Truck, adminOnly: true },
-  { title: "AI Insights", url: "/insights", icon: BrainCircuit, adminOnly: true },
-  { title: "Reports", url: "/reports", icon: FileText, adminOnly: true },
+  { title: "Inventory", url: "/inventory", icon: Package },
+  { title: "Orders", url: "/orders", icon: ShoppingBasket },
+  { title: "Payments", url: "/payments", icon: CreditCard },
+  { title: "Stock Tracking", url: "/stock", icon: History },
+  { title: "Categories", url: "/categories", icon: Tags },
+  { title: "Suppliers", url: "/suppliers", icon: Truck },
+  { title: "AI Insights", url: "/insights", icon: BrainCircuit },
+  { title: "Reports", url: "/reports", icon: FileText },
   { title: "Admin Management", url: "/admin", icon: ShieldCheck, adminOnly: true },
 ]
 
@@ -59,7 +59,6 @@ export function AppSidebar() {
     return null
   }
 
-  // Consistent Admin/Superadmin check
   const isSuperadmin = user?.email === 'markken@gulayan.ph'
   const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
@@ -85,7 +84,6 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
-                // If item is adminOnly and current user is NOT an admin, do not show it
                 if (item.adminOnly && !isAdmin) return null;
 
                 return (
