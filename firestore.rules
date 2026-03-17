@@ -2,50 +2,40 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * GEMMA'S GULAYAN - SECURITY RULES
-     * 
-     * Hierarchy: Superadmin (markken@gulayan.ph) > Admin > Staff
-     */
-
     // --- Helper Functions ---
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function getStaffRole() {
-      let path = /databases/$(database)/documents/staffUsers/$(request.auth.uid);
-      return exists(path) ? get(path).data.role : 'Guest';
-    }
-
     function isSuperadmin() {
       return isSignedIn() && request.auth.token.email == 'markken@gulayan.ph';
     }
 
+    function getStaffRole(uid) {
+      let path = /databases/$(database)/documents/staffUsers/$(uid);
+      return exists(path) ? get(path).data.role : 'Guest';
+    }
+
     function isAdmin() {
-      let role = getStaffRole();
+      let role = getStaffRole(request.auth.uid);
       return isSignedIn() && (role == 'Admin' || role == 'Superadmin' || isSuperadmin());
     }
 
     // --- Collection Rules ---
 
-    match /staffUsers/{staffUserId} {
-      // Users can always read their own profile (crucial for useDoc and identification)
-      allow get: if isSignedIn() && request.auth.uid == staffUserId;
+    match /staffUsers/{staffId} {
+      // 1. Owner Access: Users can always read and write their own profile
+      allow read, write: if isSignedIn() && request.auth.uid == staffId;
       
-      // Users can update their own basic profile (name, email)
-      allow update: if isSignedIn() && request.auth.uid == staffUserId;
-      
-      // Superadmin has full read/write access to everything in this collection
+      // 2. Superadmin Override: Full access for the main admin email
       allow read, write: if isSuperadmin();
       
-      // Admins can view the directory (list) but not modify it
-      allow list: if isAdmin();
+      // 3. Admin Oversight: Admins can view the directory (list/get)
+      allow read: if isAdmin();
 
-      // Allow temporary lookup for activation (unauthenticated get for email-based IDs)
-      // This is safe as long as we only allow 'get' and not 'list'
-      allow get: if !isSignedIn() && staffUserId.size() > 5;
+      // 4. Activation: Allow temporary lookup for activation (unauthenticated get)
+      allow get: if !isSignedIn() && staffId.size() > 5;
     }
 
     match /categories/{categoryId} {
