@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useEffect, useState } from 'react'
@@ -48,6 +49,10 @@ export default function DashboardPage() {
     )
   }
 
+  const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin'
+  const isAdmin = profile?.role === 'Admin' || isSuperadmin
+  const isStaff = profile?.role === 'Staff'
+
   const totalProducts = products?.length || 0
   const lowStockItems = products?.filter(p => p.currentStockQuantity <= p.lowStockThreshold && p.currentStockQuantity > 0).length || 0
   const outOfStockItems = products?.filter(p => p.currentStockQuantity <= 0).length || 0
@@ -65,7 +70,7 @@ export default function DashboardPage() {
   ].filter(d => d.value > 0)
 
   const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--destructive))']
-  const totalValue = products?.reduce((acc, p) => acc + (p.currentStockQuantity * p.pricePerUnit), 0) || 0
+  const totalValue = products?.reduce((acc, p) => acc + (p.currentStockQuantity * (p.pricePerUnit || 0)), 0) || 0
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -74,9 +79,11 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-headline font-bold text-primary">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back{profile?.name ? `, ${profile.name}` : ''}! Here's what's happening today.</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline">Print Reports</Button>
-        </div>
+        {!isStaff && (
+          <div className="flex gap-2">
+            <Button variant="outline">Print Reports</Button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -110,16 +117,19 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">Unavailable items</p>
           </CardContent>
         </Card>
-        <Card className="hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Inventory Value</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₱{totalValue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Estimated total</p>
-          </CardContent>
-        </Card>
+        
+        {isAdmin && (
+          <Card className="hover:shadow-md transition-shadow bg-primary/5">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Inventory Value</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">₱{totalValue.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Estimated total</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">

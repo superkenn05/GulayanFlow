@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState } from 'react'
@@ -38,8 +39,8 @@ export default function AdminManagementPage() {
   const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
   const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
   
-  const isSuperadmin = user?.email === 'markken@gulayan.ph'
-  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
+  const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin'
+  const isAdmin = profile?.role === 'Admin' || isSuperadmin
 
   const staffQuery = useMemoFirebase(() => isAdmin ? query(collection(db, 'staffUsers'), orderBy('createdAt', 'desc')) : null, [db, isAdmin])
   const { data: staff, isLoading } = useCollection(staffQuery)
@@ -111,7 +112,7 @@ export default function AdminManagementPage() {
         
         {isSuperadmin && (
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild><Button className="gap-2"><UserPlus className="h-4 w-4" /> Add Staff/Admin</Button></DialogTrigger>
+            <DialogTrigger asChild><Button className="gap-2"><UserPlus className="h-4 w-4" /> Add Personnel</Button></DialogTrigger>
             <DialogContent>
               <form onSubmit={handleSaveStaff}>
                 <DialogHeader>
