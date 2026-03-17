@@ -1,9 +1,10 @@
+
 "use client"
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { FileText, Download, Calendar as CalendarIcon } from "lucide-react"
+import { FileText, Download, Calendar as CalendarIcon, Loader2 } from "lucide-react"
 import {
   BarChart,
   Bar,
@@ -15,6 +16,8 @@ import {
   LineChart,
   Line
 } from 'recharts'
+import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase'
+import { doc } from 'firebase/firestore'
 
 const salesData = [
   { day: 'Mon', amount: 4500 },
@@ -27,6 +30,28 @@ const salesData = [
 ]
 
 export default function ReportsPage() {
+  const [mounted, setMounted] = useState(false)
+  const db = useFirestore()
+  const { user } = useUser()
+
+  const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
+  const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted || isProfileLoading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+      </div>
+    )
+  }
+
+  const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin'
+  const isAdmin = profile?.role === 'Admin' || isSuperadmin
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -40,9 +65,11 @@ export default function ReportsPage() {
           <Button variant="outline" className="gap-2">
             <CalendarIcon className="h-4 w-4" /> Last 7 Days
           </Button>
-          <Button className="gap-2">
-            <Download className="h-4 w-4" /> Export PDF
-          </Button>
+          {isAdmin && (
+            <Button className="gap-2">
+              <Download className="h-4 w-4" /> Export PDF
+            </Button>
+          )}
         </div>
       </div>
 
@@ -91,10 +118,12 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Total Stock Value</p>
-              <p className="text-3xl font-bold">₱42,850.00</p>
-            </div>
+            {isAdmin && (
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Total Stock Value</p>
+                <p className="text-3xl font-bold">₱42,850.00</p>
+              </div>
+            )}
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Stock Turn-over Rate</p>
               <p className="text-3xl font-bold">4.2x</p>
