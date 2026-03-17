@@ -1,6 +1,7 @@
+
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -16,6 +17,11 @@ import {
 
 export default function PaymentManagementPage() {
   const [payments, setPayments] = useState(MOCK_PAYMENTS)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const totalIncome = payments
     .filter(p => p.type === 'income' && p.status === 'successful')
@@ -104,7 +110,7 @@ export default function PaymentManagementPage() {
               {payments.map((payment) => (
                 <TableRow key={payment.id}>
                   <TableCell className="text-sm">
-                    {new Date(payment.date).toLocaleDateString()}
+                    {mounted ? new Date(payment.date).toLocaleDateString() : ""}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
