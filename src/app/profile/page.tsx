@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -44,6 +45,7 @@ export default function ProfilePage() {
 
     setIsSaving(true)
     try {
+      // Only name and email are updated. Role and status are strictly read-only for the user.
       updateDocumentNonBlocking(userRef, {
         name: formData.name,
         email: formData.email,
@@ -108,6 +110,11 @@ export default function ProfilePage() {
             </Avatar>
             <CardTitle className="text-2xl mt-4 text-center">{profile?.name || 'Staff Member'}</CardTitle>
             <Badge className="mt-2 bg-primary px-4 py-1">{profile?.role?.toUpperCase() || 'STAFF'}</Badge>
+            <div className="mt-2">
+              <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-tighter opacity-70">
+                STATUS: {profile?.status || 'Active'}
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6 mt-8">
             <div className="flex items-center gap-3 text-sm font-medium">
@@ -177,9 +184,10 @@ export default function ProfilePage() {
             </div>
 
             <div className="border-t pt-8">
-              <h3 className="text-lg font-bold mb-2">Password Management</h3>
+              <h3 className="text-lg font-bold mb-2">Account Management</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                To change your authentication password, please use the password recovery tool on the login screen or consult an administrator for a reset.
+                Your role ({profile?.role}) and account status ({profile?.status}) are managed by the store Superadmin. 
+                To change your password or security settings, please consult an administrator.
               </p>
             </div>
           </CardContent>

@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Search, Filter, Edit, Trash2, MoreHorizontal, Sparkles, Loader2, Upload, Image as ImageIcon } from "lucide-react"
+import { Plus, Search, Filter, Edit, Trash2, MoreHorizontal, Sparkles, Loader2, Upload, Image as ImageIcon, Lock } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,7 +31,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { getNutritionalValues } from '@/ai/flows/nutritional-values-flow'
 import { toast } from '@/hooks/use-toast'
-import { useCollection, useFirestore, useMemoFirebase, useUser } from '@/firebase'
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
 import { collection, query, orderBy, doc, serverTimestamp } from 'firebase/firestore'
 import { deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates'
 import { cn } from '@/lib/utils'
@@ -49,8 +49,14 @@ export default function InventoryPage() {
   const db = useFirestore()
   const { user } = useUser()
 
-  const productsQuery = useMemoFirebase(() => query(collection(db, 'products'), orderBy('name', 'asc')), [db])
-  const categoriesQuery = useMemoFirebase(() => query(collection(db, 'categories'), orderBy('name', 'asc')), [db])
+  const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
+  const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
+
+  const isSuperadmin = user?.email === 'markken@gulayan.ph'
+  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
+
+  const productsQuery = useMemoFirebase(() => isAdmin ? query(collection(db, 'products'), orderBy('name', 'asc')) : null, [db, isAdmin])
+  const categoriesQuery = useMemoFirebase(() => isAdmin ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db, isAdmin])
 
   const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
   const { data: categories } = useCollection(categoriesQuery)
@@ -276,6 +282,21 @@ export default function InventoryPage() {
     })
 
     toast({ title: "Stock Updated", description: `${product.name} stock adjusted.` })
+  }
+
+  if (isProfileLoading) {
+    return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin opacity-20" /></div>
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
+        <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center text-destructive"><Lock className="h-8 w-8" /></div>
+        <h2 className="text-2xl font-headline font-bold">Access Denied</h2>
+        <p className="text-muted-foreground max-w-sm">This section is reserved for administrators.</p>
+        <Button asChild variant="outline"><a href="/">Dashboard</a></Button>
+      </div>
+    )
   }
 
   return (

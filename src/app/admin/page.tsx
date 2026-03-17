@@ -77,7 +77,7 @@ export default function AdminManagementPage() {
         password: formData.password,
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
-        status: 'pending'
+        status: 'pending' // Initial status is set automatically, not editable via UI
       }, { merge: true })
 
       toast({ title: "Staff Member Added", description: `${formData.name} has been pre-registered.` })
@@ -139,11 +139,26 @@ export default function AdminManagementPage() {
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
                     <Label htmlFor="name">Full Name</Label>
-                    <Input id="name" placeholder="Juan Dela Cruz" required value={formData.name} onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} />
+                    <input 
+                      id="name" 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="Juan Dela Cruz" 
+                      required 
+                      value={formData.name} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} 
+                    />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="email">Email Address</Label>
-                    <Input id="email" type="email" placeholder="juan@gulayan.ph" required value={formData.email} onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} />
+                    <input 
+                      id="email" 
+                      type="email" 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      placeholder="juan@gulayan.ph" 
+                      required 
+                      value={formData.email} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))} 
+                    />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="role">Role</Label>
@@ -233,7 +248,12 @@ export default function AdminManagementPage() {
                       {member.role}
                     </Badge>
                   </TableCell>
-                  <TableCell><Badge variant={member.status === 'active' ? 'default' : 'outline'}>{member.status || 'Active'}</Badge></TableCell>
+                  <TableCell>
+                    {/* Status is a read-only badge and cannot be edited via any UI action */}
+                    <Badge variant={member.status === 'active' ? 'default' : 'outline'}>
+                      {member.status?.toUpperCase() || 'PENDING'}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-right">
                     {isSuperadmin && member.email !== user?.email && (
                       <DropdownMenu>
