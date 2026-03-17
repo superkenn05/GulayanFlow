@@ -42,7 +42,7 @@ const items = [
   { title: "Payments", url: "/payments", icon: CreditCard },
   { title: "Stock Tracking", url: "/stock", icon: History },
   { title: "Categories", url: "/categories", icon: Tags },
-  { title: "Suppliers", url: "/suppliers", icon: Truck, adminOnly: true },
+  { title: "Suppliers", url: "/suppliers", icon: Truck },
   { title: "AI Insights", url: "/insights", icon: BrainCircuit },
   { title: "Reports", url: "/reports", icon: FileText },
   { title: "Admin Management", url: "/admin", icon: ShieldCheck, adminOnly: true },
@@ -60,8 +60,8 @@ export function AppSidebar() {
     return null
   }
 
-  const isSuperadmin = user?.email === 'markken@gulayan.ph'
-  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
+  const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin'
+  const isAdmin = profile?.role === 'Admin' || isSuperadmin
 
   return (
     <Sidebar collapsible="icon">

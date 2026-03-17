@@ -1,9 +1,10 @@
+
 "use client"
 
 import React from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Truck, Plus, Phone, Mail, MapPin, Loader2, Lock, User } from "lucide-react"
+import { Truck, Plus, Phone, Mail, MapPin, Loader2, User } from "lucide-react"
 import { MOCK_SUPPLIERS } from '../lib/mock-data'
 import { Badge } from "@/components/ui/badge"
 import { useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
@@ -16,23 +17,12 @@ export default function SuppliersPage() {
   const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
   const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
 
-  const isSuperadmin = user?.email === 'markken@gulayan.ph'
-  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
-
   if (isProfileLoading) {
     return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin opacity-20" /></div>
   }
 
-  if (!isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
-        <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center text-destructive"><Lock className="h-8 w-8" /></div>
-        <h2 className="text-2xl font-headline font-bold">Access Denied</h2>
-        <p className="text-muted-foreground max-w-sm">This section is restricted to administrators.</p>
-        <Button asChild variant="outline"><a href="/">Dashboard</a></Button>
-      </div>
-    )
-  }
+  const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin'
+  const isAdmin = profile?.role === 'Admin' || isSuperadmin
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
@@ -41,11 +31,13 @@ export default function SuppliersPage() {
           <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-2">
             Suppliers <Truck className="h-6 w-6" />
           </h1>
-          <p className="text-muted-foreground">Manage your network of farmers and wholesalers.</p>
+          <p className="text-muted-foreground">Network of farmers and wholesalers.</p>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" /> Add Supplier
-        </Button>
+        {isAdmin && (
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" /> Add Supplier
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
