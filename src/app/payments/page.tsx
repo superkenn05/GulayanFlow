@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from 'react'
@@ -6,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CreditCard, Plus, ArrowUpCircle, ArrowDownCircle, Filter, Download } from "lucide-react"
+import { CreditCard, Plus, ArrowUpCircle, ArrowDownCircle, Filter, Download, Loader2, Lock } from "lucide-react"
 import { MOCK_PAYMENTS } from '../lib/mock-data'
 import { 
   DropdownMenu, 
@@ -14,9 +13,19 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
+import { useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
+import { doc } from 'firebase/firestore'
 
 export default function PaymentManagementPage() {
   const [payments, setPayments] = useState(MOCK_PAYMENTS)
+  const db = useFirestore()
+  const { user } = useUser()
+
+  const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
+  const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
+
+  const isSuperadmin = user?.email === 'markken@gulayan.ph'
+  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
   const totalIncome = payments
     .filter(p => p.type === 'income' && p.status === 'successful')
@@ -25,6 +34,21 @@ export default function PaymentManagementPage() {
   const totalExpenses = payments
     .filter(p => p.type === 'expense' && p.status === 'successful')
     .reduce((acc, curr) => acc + curr.amount, 0)
+
+  if (isProfileLoading) {
+    return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin opacity-20" /></div>
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
+        <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center text-destructive"><Lock className="h-8 w-8" /></div>
+        <h2 className="text-2xl font-headline font-bold">Access Denied</h2>
+        <p className="text-muted-foreground max-sm">This section is restricted to administrators.</p>
+        <Button asChild variant="outline"><a href="/">Dashboard</a></Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">

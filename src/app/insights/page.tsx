@@ -1,26 +1,34 @@
-
 "use client"
 
 import React, { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { BrainCircuit, Sparkles, Loader2, ArrowRightCircle, CheckCircle2 } from "lucide-react"
+import { BrainCircuit, Sparkles, Loader2, ArrowRightCircle, CheckCircle2, Lock } from "lucide-react"
 import { aiInventoryInsights, AIInventoryInsightsOutput } from '@/ai/flows/ai-inventory-insights'
 import { MOCK_PRODUCTS, MOCK_TRANSACTIONS } from '../lib/mock-data'
 import { Badge } from '@/components/ui/badge'
+import { useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
+import { doc } from 'firebase/firestore'
 
 export default function AIInsightsPage() {
   const [loading, setLoading] = useState(false)
   const [insights, setInsights] = useState<AIInventoryInsightsOutput | null>(null)
+  const db = useFirestore()
+  const { user } = useUser()
+
+  const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
+  const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
+
+  const isSuperadmin = user?.email === 'markken@gulayan.ph'
+  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
   const generateInsights = async () => {
     setLoading(true)
     try {
-      // Prepare input from mock data
       const currentInventory = MOCK_PRODUCTS.map(p => ({
         productId: p.id,
         name: p.name,
-        category: 'Produce', // Simplified for demo
+        category: 'Produce',
         currentStock: p.currentStock,
         price: p.price
       }))
@@ -41,6 +49,21 @@ export default function AIInsightsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (isProfileLoading) {
+    return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin opacity-20" /></div>
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
+        <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center text-destructive"><Lock className="h-8 w-8" /></div>
+        <h2 className="text-2xl font-headline font-bold">Access Denied</h2>
+        <p className="text-muted-foreground max-w-sm">This section is restricted to administrators.</p>
+        <Button asChild variant="outline"><a href="/">Dashboard</a></Button>
+      </div>
+    )
   }
 
   return (
@@ -122,8 +145,8 @@ export default function AIInsightsPage() {
                       <div className="flex justify-between items-center">
                         <span className="font-bold">{s.name}</span>
                         <div className="flex items-center gap-1 text-primary">
-                           <ArrowRightCircle className="h-4 w-4" />
-                           <span className="font-bold">{s.suggestedOptimalStock} units</span>
+                            <ArrowRightCircle className="h-4 w-4" />
+                            <span className="font-bold">{s.suggestedOptimalStock} units</span>
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground italic">"{s.reasoning}"</p>
