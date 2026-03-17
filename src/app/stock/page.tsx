@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState } from 'react'
@@ -16,7 +17,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu"
-import { ArrowUpRight, ArrowDownRight, Trash2, Filter, Loader2, History, MoreVertical } from 'lucide-react'
+import { ArrowUpRight, ArrowDownRight, Trash2, Filter, Loader2, History, MoreVertical, ShieldAlert } from 'lucide-react'
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
 import { collection, query, orderBy, limit, doc, serverTimestamp } from 'firebase/firestore'
 import { deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates'
@@ -35,7 +36,9 @@ export default function StockTrackingPage() {
 
   const productsQuery = useMemoFirebase(() => query(collection(db, 'products'), orderBy('name', 'asc')), [db])
   const transactionsQuery = useMemoFirebase(() => query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(50)), [db])
-  const staffQuery = useMemoFirebase(() => query(collection(db, 'staffUsers')), [db])
+  
+  // Guard: Only fetch the staff directory if the user is an Admin/Superadmin to avoid permission errors
+  const staffQuery = useMemoFirebase(() => isAdmin ? query(collection(db, 'staffUsers')) : null, [db, isAdmin])
 
   const { data: products } = useCollection(productsQuery)
   const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery)
@@ -90,11 +93,13 @@ export default function StockTrackingPage() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-2">
-          Stock Tracking <History className="h-6 w-6" />
-        </h1>
-        <p className="text-muted-foreground">Log inventory movements and track history.</p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-2">
+            Stock Tracking <History className="h-6 w-6" />
+          </h1>
+          <p className="text-muted-foreground">Log inventory movements and track history.</p>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -139,7 +144,7 @@ export default function StockTrackingPage() {
                             isPositive ? 'border-green-500 text-green-600 bg-green-50' :
                             t.transactionType === 'STOCK_OUT_SALE' ? 'border-blue-500 text-blue-600 bg-blue-50' :
                             'border-red-500 text-red-600 bg-red-50'
-                          } flex items-center w-fit gap-1`}>
+                          } flex items-center w-fit gap-1 text-[10px] uppercase font-bold`}>
                             {isPositive ? <ArrowUpRight className="h-3 w-3" /> :
                               t.transactionType === 'STOCK_OUT_SALE' ? <ArrowDownRight className="h-3 w-3" /> :
                               <Trash2 className="h-3 w-3" />}
@@ -147,9 +152,11 @@ export default function StockTrackingPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="font-bold">
-                          {isPositive ? '+' : ''}{t.quantityChange} {product?.unitOfMeasure}
+                          {isPositive ? '+' : ''}{t.quantityChange} {product?.unitOfMeasure || 'units'}
                         </TableCell>
-                        <TableCell>{staffMember?.name || 'System'}</TableCell>
+                        <TableCell className="text-sm">
+                          {staffMember?.name || (t.staffUserId === user?.uid ? profile?.name : 'Authorized Staff')}
+                        </TableCell>
                         <TableCell className="text-muted-foreground text-xs italic">{t.reason || '-'}</TableCell>
                         {isAdmin && (
                           <TableCell className="text-right">
@@ -166,6 +173,13 @@ export default function StockTrackingPage() {
                       </TableRow>
                     )
                   })}
+                  {!transactionsLoading && transactions?.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={isAdmin ? 7 : 6} className="text-center py-10 text-muted-foreground">
+                        No transactions found.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             )}
@@ -210,17 +224,22 @@ export default function StockTrackingPage() {
                   <Label>Reason/Notes (Optional)</Label>
                   <Textarea placeholder="Add a reason for this movement..." value={form.reason} onChange={e => setForm(p => ({...p, reason: e.target.value}))} />
                 </div>
-                <Button className="w-full" onClick={handleSubmitTransaction}>Submit Transaction</Button>
+                <Button className="w-full h-11" onClick={handleSubmitTransaction}>Submit Transaction</Button>
               </CardContent>
             </Card>
 
             <div className="space-y-4">
-              <Card className="bg-primary text-primary-foreground">
-                <CardHeader><CardTitle>Operational Guidelines</CardTitle></CardHeader>
-                <CardContent className="text-sm space-y-2 opacity-90">
-                  <p>• Staff can log entries, sales, and waste.</p>
-                  <p>• Only Admins can modify or delete historical records.</p>
-                  <p>• Ensure all weights are accurate before submission.</p>
+              <Card className="bg-primary/5 border-primary/20">
+                <CardHeader>
+                  <CardTitle className="text-primary flex items-center gap-2">
+                    <ShieldAlert className="h-5 w-5" /> Operational Guidelines
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm space-y-4 text-muted-foreground">
+                  <p>• Staff can log entries, sales, and waste movements.</p>
+                  <p>• Accuracy in weights and quantities is critical for audit integrity.</p>
+                  <p>• Only Administrators can modify or delete historical records.</p>
+                  <p>• Use the "Reason" field for waste to help identify recurring issues.</p>
                 </CardContent>
               </Card>
             </div>
