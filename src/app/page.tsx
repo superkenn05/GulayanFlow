@@ -62,8 +62,7 @@ export default function DashboardPage() {
         <div className="space-y-2">
           <h1 className="text-3xl font-headline font-bold">Welcome, {profile?.name || 'Staff Member'}!</h1>
           <p className="text-muted-foreground max-w-md mx-auto">
-            You are logged into the GulayanFlow system. Your account currently has limited access. 
-            Please contact an administrator if you believe you should have management permissions.
+            You are logged into the GulayanFlow system. Your account currently has limited access to operational data.
           </p>
         </div>
         <div className="flex gap-4">

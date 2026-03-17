@@ -201,7 +201,7 @@ export default function LoginPage() {
               Sign In
             </Button>
             <p className="text-center text-xs text-muted-foreground">
-              Authorized personnel only. Contact Superadmin for setup.
+              Authorized personnel only.
             </p>
           </CardFooter>
         </form>

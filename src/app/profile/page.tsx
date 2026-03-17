@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -186,8 +185,7 @@ export default function ProfilePage() {
             <div className="border-t pt-8">
               <h3 className="text-lg font-bold mb-2">Account Management</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Your role ({profile?.role}) and account status ({profile?.status}) are managed by the store Superadmin. 
-                To change your password or security settings, please consult an administrator.
+                Your role ({profile?.role}) and account status ({profile?.status}) are managed centrally.
               </p>
             </div>
           </CardContent>
