@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -41,7 +42,7 @@ const items = [
   { title: "Payments", url: "/payments", icon: CreditCard },
   { title: "Stock Tracking", url: "/stock", icon: History },
   { title: "Categories", url: "/categories", icon: Tags },
-  { title: "Suppliers", url: "/suppliers", icon: Truck },
+  { title: "Suppliers", url: "/suppliers", icon: Truck, adminOnly: true },
   { title: "AI Insights", url: "/insights", icon: BrainCircuit },
   { title: "Reports", url: "/reports", icon: FileText },
   { title: "Admin Management", url: "/admin", icon: ShieldCheck, adminOnly: true },
