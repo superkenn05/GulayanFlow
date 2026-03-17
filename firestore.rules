@@ -9,33 +9,21 @@ service cloud.firestore {
     }
 
     function isSuperadmin() {
-      return isSignedIn() && (request.auth.token.email == 'markken@gulayan.ph');
-    }
-
-    function getStaffRole(uid) {
-      let path = /databases/$(database)/documents/staffUsers/$(uid);
-      return exists(path) ? get(path).data.role : 'Guest';
-    }
-
-    function isAdmin() {
-      let role = getStaffRole(request.auth.uid);
-      return isSignedIn() && (role == 'Admin' || role == 'Superadmin' || isSuperadmin());
+      return isSignedIn() && request.auth.token.email == 'markken@gulayan.ph';
     }
 
     // --- Collection Rules ---
 
-    match /staffUsers/{staffId} {
-      // 1. Owner Access: Users can always read and write their own profile
-      allow read, write: if isSignedIn() && request.auth.uid == staffId;
-      
-      // 2. Superadmin Override: Full access for the main admin email
+    // Superadmin has full access to everything by default
+    match /{document=**} {
       allow read, write: if isSuperadmin();
-      
-      // 3. Admin Oversight: Admins can view the directory (list/get)
-      allow read: if isAdmin();
+    }
 
-      // 4. Activation: Allow temporary lookup for activation (unauthenticated get)
-      allow get: if !isSignedIn() && staffId.size() > 5;
+    match /staffUsers/{staffId} {
+      // Users can always read and update their own profile
+      allow read, write: if isSignedIn() && request.auth.uid == staffId;
+      // Allow directory listing for authenticated staff
+      allow list: if isSignedIn();
     }
 
     match /categories/{categoryId} {
@@ -49,17 +37,11 @@ service cloud.firestore {
     }
 
     match /stockTransactions/{transactionId} {
-      // Explicitly allow list/get for signed in users
+      // Allow reading history for all signed in staff
       allow read: if isSignedIn();
-      // Allow creation and updates for movements
+      // Allow logging movements
       allow create, update: if isSignedIn();
-      // Delete is strictly restricted to Admins for audit integrity
-      allow delete: if isAdmin();
-    }
-
-    // Global deny for everything else
-    match /{document=**} {
-      allow read, write: if false;
+      // Deletion is restricted to Superadmin via the global rule above
     }
   }
 }
