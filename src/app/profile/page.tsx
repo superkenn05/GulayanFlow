@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -39,12 +40,14 @@ export default function ProfilePage() {
     }
   }, [profile])
 
+  const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin'
+  const isAdmin = profile?.role === 'Admin' || isSuperadmin
+
   const handleSaveChanges = async () => {
     if (!user || !userRef) return
 
     setIsSaving(true)
     try {
-      // Only name and email are updated. Role and status are strictly read-only for the user.
       updateDocumentNonBlocking(userRef, {
         name: formData.name,
         email: formData.email,
@@ -53,7 +56,7 @@ export default function ProfilePage() {
       
       toast({
         title: "Profile Updated",
-        description: "Your changes have been saved to the database."
+        description: "Your changes have been saved."
       })
     } catch (error) {
       toast({
@@ -95,7 +98,7 @@ export default function ProfilePage() {
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col gap-2">
         <h1 className="text-4xl font-headline font-bold text-primary">My Profile</h1>
-        <p className="text-muted-foreground">Manage your identity and staff information.</p>
+        <p className="text-muted-foreground">Manage your identity and account details.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -108,12 +111,17 @@ export default function ProfilePage() {
               </AvatarFallback>
             </Avatar>
             <CardTitle className="text-2xl mt-4 text-center">{profile?.name || 'Staff Member'}</CardTitle>
-            <Badge className="mt-2 bg-primary px-4 py-1">{profile?.role?.toUpperCase() || 'STAFF'}</Badge>
-            <div className="mt-2">
-              <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-tighter opacity-70">
-                STATUS: {profile?.status || 'Active'}
-              </Badge>
-            </div>
+            
+            {isAdmin && (
+              <>
+                <Badge className="mt-2 bg-primary px-4 py-1">{profile?.role?.toUpperCase() || 'ADMIN'}</Badge>
+                <div className="mt-2">
+                  <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-tighter opacity-70">
+                    STATUS: {profile?.status || 'Active'}
+                  </Badge>
+                </div>
+              </>
+            )}
           </CardHeader>
           <CardContent className="space-y-6 mt-8">
             <div className="flex items-center gap-3 text-sm font-medium">
@@ -122,18 +130,16 @@ export default function ProfilePage() {
               </div>
               <span className="truncate flex-1">{profile?.email}</span>
             </div>
-            <div className="flex items-center gap-3 text-sm font-medium">
-              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-                <Shield className="h-4 w-4 text-primary" />
+            {isAdmin && (
+              <div className="flex items-center gap-3 text-sm font-medium">
+                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
+                  <Shield className="h-4 w-4 text-primary" />
+                </div>
+                <span className="font-bold">
+                  {isSuperadmin ? 'Superadmin Access' : 'Administrator Access'}
+                </span>
               </div>
-              <span className="font-bold">
-                {profile?.role === 'Superadmin' 
-                  ? 'Superadmin Access' 
-                  : profile?.role === 'Admin' 
-                    ? 'Admin Access' 
-                    : 'Why Staff Access?'}
-              </span>
-            </div>
+            )}
           </CardContent>
           <CardFooter className="pt-0">
             <Button 
@@ -149,7 +155,7 @@ export default function ProfilePage() {
         <Card className="md:col-span-2 border-none shadow-md">
           <CardHeader>
             <CardTitle>Account Information</CardTitle>
-            <CardDescription>Update your personal details visible to other staff.</CardDescription>
+            <CardDescription>Update your display name and contact email.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid gap-6">
@@ -182,12 +188,14 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="border-t pt-8">
-              <h3 className="text-lg font-bold mb-2">Account Management</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Your role ({profile?.role}) and account status ({profile?.status}) are managed centrally.
-              </p>
-            </div>
+            {isAdmin && (
+              <div className="border-t pt-8">
+                <h3 className="text-lg font-bold mb-2">Account Management</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Your role ({profile?.role}) and account status ({profile?.status}) are managed centrally by the Superadmin.
+                </p>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="justify-end bg-muted/20 border-t rounded-b-lg">
             <Button 
