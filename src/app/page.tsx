@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Package, AlertTriangle, ArrowUpRight, ArrowDownRight, TrendingUp, ShoppingBag, Loader2, Lock } from "lucide-react"
+import { Package, AlertTriangle, ArrowUpRight, ArrowDownRight, TrendingUp, ShoppingBag, Loader2, Lock, UserCircle } from "lucide-react"
 import {
   BarChart,
   Bar,
@@ -27,7 +27,7 @@ export default function DashboardPage() {
   const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
   const { data: profile, isLoading: profileLoading } = useDoc(staffRef)
 
-  // Superadmin check
+  // Consistent Admin/Superadmin check
   const isSuperadmin = user?.email === 'markken@gulayan.ph'
   const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
@@ -52,17 +52,33 @@ export default function DashboardPage() {
     )
   }
 
+  // Staff Restricted View
   if (!isAdmin) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
-        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center text-muted-foreground"><Lock className="h-8 w-8" /></div>
-        <h2 className="text-2xl font-headline font-bold">Account Restricted</h2>
-        <p className="text-muted-foreground max-w-sm">Welcome, {profile?.name || 'Staff'}. Your account currently has no active permissions. Please contact an administrator for access.</p>
-        <Button asChild variant="outline" size="sm"><a href="/profile">Go to Profile</a></Button>
+      <div className="flex flex-col items-center justify-center h-[70vh] text-center space-y-6 animate-in fade-in duration-700">
+        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+          <UserCircle className="h-10 w-10" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-headline font-bold">Welcome, {profile?.name || 'Staff Member'}!</h1>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            You are logged into the GulayanFlow system. Your account currently has limited access. 
+            Please contact an administrator if you believe you should have management permissions.
+          </p>
+        </div>
+        <div className="flex gap-4">
+          <Button asChild variant="default" size="lg" className="px-8 shadow-lg">
+            <a href="/profile">View My Profile</a>
+          </Button>
+          <Button variant="outline" size="lg" onClick={() => window.location.reload()}>
+            Refresh Session
+          </Button>
+        </div>
       </div>
     )
   }
 
+  // Admin/Superadmin View
   const totalProducts = products?.length || 0
   const lowStockItems = products?.filter(p => p.currentStockQuantity <= p.lowStockThreshold && p.currentStockQuantity > 0).length || 0
   const outOfStockItems = products?.filter(p => p.currentStockQuantity <= 0).length || 0
@@ -166,7 +182,7 @@ export default function DashboardPage() {
                             </div>
                           )
                         }
-                        return null
+                        return null;
                       }}
                     />
                     <Bar dataKey="stock" radius={[4, 4, 0, 0]}>

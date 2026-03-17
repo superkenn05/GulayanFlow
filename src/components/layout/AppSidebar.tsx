@@ -85,7 +85,8 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
-                if (item.adminOnly && !isAdmin) return null
+                // If item is adminOnly and current user is NOT an admin, do not show it
+                if (item.adminOnly && !isAdmin) return null;
 
                 return (
                   <SidebarMenuItem key={item.title}>

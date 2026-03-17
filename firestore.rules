@@ -6,7 +6,6 @@ service cloud.firestore {
      * GEMMA'S GULAYAN - SECURITY RULES
      * 
      * Hierarchy: Superadmin (markken@gulayan.ph) > Admin > Staff
-     * Note: Staff permissions removed as per request.
      */
 
     // --- Helper Functions ---
@@ -38,7 +37,7 @@ service cloud.firestore {
       // Users can update their own basic profile
       allow update: if isSignedIn() && request.auth.uid == staffUserId;
       
-      // Only the Superadmin can manage the directory and assign roles
+      // Only the Superadmin can manage the directory and assign roles/status
       allow read, write: if isSuperadmin();
       
       // Admins can view the directory but not modify it
@@ -46,17 +45,17 @@ service cloud.firestore {
     }
 
     match /categories/{categoryId} {
-      // Restricted to Admin only
+      // Restricted to Admin and Superadmin only. Staff removed.
       allow read, write: if isAdmin();
     }
 
     match /products/{productId} {
-      // Restricted to Admin only
+      // Restricted to Admin and Superadmin only. Staff removed.
       allow read, write: if isAdmin();
     }
 
     match /stockTransactions/{transactionId} {
-      // Restricted to Admin only
+      // Restricted to Admin and Superadmin only. Staff removed.
       allow read, create, update, delete: if isAdmin();
     }
 
