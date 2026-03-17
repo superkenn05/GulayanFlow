@@ -12,36 +12,39 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.email == 'markken@gulayan.ph';
     }
 
-    // --- Collection Rules ---
-
-    // Superadmin has full access to everything by default
+    // --- Global Superadmin Override ---
+    // This is placed at the top and covers every path in the database.
+    // This ensures that the Superadmin (markken@gulayan.ph) always has full access.
     match /{document=**} {
       allow read, write: if isSuperadmin();
     }
 
+    // --- Collection Specific Rules ---
+
     match /staffUsers/{staffId} {
-      // Users can always read and update their own profile
-      allow read, write: if isSignedIn() && request.auth.uid == staffId;
-      // Allow directory listing for authenticated staff
+      // Any signed in staff can list the directory (needed for audit views and history displays)
       allow list: if isSignedIn();
+      // Users can manage their own profile
+      allow get, write: if isSignedIn() && request.auth.uid == staffId;
     }
 
     match /categories/{categoryId} {
-      // Accessible to all authorized staff for operations
+      // Operational data accessible to all authorized staff for day-to-day work
       allow read, write: if isSignedIn();
     }
 
     match /products/{productId} {
-      // Accessible to all authorized staff for operations
+      // Operational data accessible to all authorized staff
       allow read, write: if isSignedIn();
     }
 
     match /stockTransactions/{transactionId} {
-      // Allow reading history for all signed in staff
+      // Essential for Dashboard activity feeds and Order History views
+      // 'read' covers both 'get' (single document) and 'list' (collection queries)
       allow read: if isSignedIn();
-      // Allow logging movements
+      // Allow any staff member to log new movements
       allow create, update: if isSignedIn();
-      // Deletion is restricted to Superadmin via the global rule above
+      // Deletions are a sensitive audit-trail operation and remain restricted to Superadmin via the global rule
     }
   }
 }
