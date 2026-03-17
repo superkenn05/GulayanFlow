@@ -3,7 +3,7 @@
 import React from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Plus, Edit, Trash2, Leaf, Apple, Carrot, Wheat, Flame, Loader2, Lock } from "lucide-react"
+import { Plus, Edit, Trash2, Leaf, Apple, Carrot, Wheat, Flame, Loader2 } from "lucide-react"
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
 import { collection, query, orderBy, doc } from 'firebase/firestore'
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates'
@@ -27,8 +27,8 @@ export default function CategoriesPage() {
   const isSuperadmin = user?.email === 'markken@gulayan.ph'
   const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
-  const categoriesQuery = useMemoFirebase(() => isAdmin ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db, isAdmin])
-  const productsQuery = useMemoFirebase(() => isAdmin ? query(collection(db, 'products')) : null, [db, isAdmin])
+  const categoriesQuery = useMemoFirebase(() => query(collection(db, 'categories'), orderBy('name', 'asc')), [db])
+  const productsQuery = useMemoFirebase(() => query(collection(db, 'products')), [db])
   
   const { data: categories, isLoading: categoriesLoading } = useCollection(categoriesQuery)
   const { data: products } = useCollection(productsQuery)
@@ -40,17 +40,6 @@ export default function CategoriesPage() {
 
   if (isProfileLoading) {
     return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin opacity-20" /></div>
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
-        <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center text-destructive"><Lock className="h-8 w-8" /></div>
-        <h2 className="text-2xl font-headline font-bold">Access Denied</h2>
-        <p className="text-muted-foreground max-w-sm">This section is restricted to administrators.</p>
-        <Button asChild variant="outline"><a href="/">Dashboard</a></Button>
-      </div>
-    )
   }
 
   return (
@@ -90,14 +79,16 @@ export default function CategoriesPage() {
                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 text-destructive"
-                    onClick={() => handleDelete(category.id, category.name)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {isAdmin && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 w-8 p-0 text-destructive"
+                      onClick={() => handleDelete(category.id, category.name)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )

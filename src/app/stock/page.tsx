@@ -10,9 +10,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from '@/components/ui/badge'
-import { ArrowUpRight, ArrowDownRight, Trash2, Filter, Loader2, History, Lock } from 'lucide-react'
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu"
+import { ArrowUpRight, ArrowDownRight, Trash2, Filter, Loader2, History, MoreVertical } from 'lucide-react'
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
-import { collection, query, orderBy, limit, doc } from 'firebase/firestore'
+import { collection, query, orderBy, limit, doc, serverTimestamp } from 'firebase/firestore'
+import { deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates'
+import { toast } from '@/hooks/use-toast'
 
 export default function StockTrackingPage() {
   const [activeTab, setActiveTab] = useState('history')
@@ -25,28 +33,60 @@ export default function StockTrackingPage() {
   const isSuperadmin = user?.email === 'markken@gulayan.ph'
   const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
-  const productsQuery = useMemoFirebase(() => isAdmin ? query(collection(db, 'products'), orderBy('name', 'asc')) : null, [db, isAdmin])
-  const transactionsQuery = useMemoFirebase(() => isAdmin ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(50)) : null, [db, isAdmin])
-  const staffQuery = useMemoFirebase(() => isAdmin ? query(collection(db, 'staffUsers')) : null, [db, isAdmin])
+  const productsQuery = useMemoFirebase(() => query(collection(db, 'products'), orderBy('name', 'asc')), [db])
+  const transactionsQuery = useMemoFirebase(() => query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(50)), [db])
+  const staffQuery = useMemoFirebase(() => query(collection(db, 'staffUsers')), [db])
 
   const { data: products } = useCollection(productsQuery)
   const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery)
   const { data: staffMembers } = useCollection(staffQuery)
 
-  if (isProfileLoading) {
-    return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin opacity-20" /></div>
+  const [form, setForm] = useState({
+    productId: '',
+    type: 'STOCK_IN',
+    quantity: '',
+    reason: ''
+  })
+
+  const handleSubmitTransaction = async () => {
+    if (!form.productId || !form.quantity) {
+      toast({ title: "Missing fields", variant: "destructive" })
+      return
+    }
+
+    const selectedProduct = products?.find(p => p.id === form.productId)
+    if (!selectedProduct) return
+
+    const quantityChange = form.type === 'STOCK_IN' ? parseFloat(form.quantity) : -parseFloat(form.quantity)
+    const transactionRef = doc(collection(db, 'stockTransactions'))
+    
+    setDocumentNonBlocking(transactionRef, {
+      id: transactionRef.id,
+      productId: form.productId,
+      staffUserId: user?.uid || 'system',
+      transactionType: form.type,
+      quantityChange,
+      transactionDate: serverTimestamp(),
+      unitCostAtTransaction: selectedProduct.pricePerUnit,
+      reason: form.reason
+    }, { merge: true })
+
+    updateDocumentNonBlocking(doc(db, 'products', form.productId), {
+      currentStockQuantity: (selectedProduct.currentStockQuantity || 0) + quantityChange,
+      updatedAt: serverTimestamp()
+    })
+
+    toast({ title: "Transaction Logged" })
+    setForm({ productId: '', type: 'STOCK_IN', quantity: '', reason: '' })
+    setActiveTab('history')
   }
 
-  if (!isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
-        <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center text-destructive"><Lock className="h-8 w-8" /></div>
-        <h2 className="text-2xl font-headline font-bold">Access Denied</h2>
-        <p className="text-muted-foreground max-w-sm">This section is restricted to administrators.</p>
-        <Button asChild variant="outline"><a href="/">Dashboard</a></Button>
-      </div>
-    )
+  const handleDeleteTransaction = (id: string) => {
+    deleteDocumentNonBlocking(doc(db, 'stockTransactions', id))
+    toast({ title: "Record Deleted" })
   }
+
+  if (isProfileLoading) return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin opacity-20" /></div>
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -64,26 +104,6 @@ export default function StockTrackingPage() {
         </TabsList>
 
         <TabsContent value="history" className="space-y-4">
-          <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm ring-1 ring-border">
-              <div className="flex gap-4">
-                <Input placeholder="Filter by product..." className="max-w-xs" />
-                <Select defaultValue="all">
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="All Movements" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Movements</SelectItem>
-                    <SelectItem value="STOCK_IN">Stock Entry (In)</SelectItem>
-                    <SelectItem value="STOCK_OUT_SALE">Sales (Out)</SelectItem>
-                    <SelectItem value="STOCK_OUT_WASTE">Waste</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button variant="ghost" className="gap-2">
-                <Filter className="h-4 w-4" /> More Filters
-              </Button>
-          </div>
-
           <Card>
             {transactionsLoading ? (
               <div className="flex justify-center py-20">
@@ -99,6 +119,7 @@ export default function StockTrackingPage() {
                     <TableHead>Quantity</TableHead>
                     <TableHead>Staff</TableHead>
                     <TableHead>Reason/Note</TableHead>
+                    {isAdmin && <TableHead className="text-right">Admin</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -130,16 +151,21 @@ export default function StockTrackingPage() {
                         </TableCell>
                         <TableCell>{staffMember?.name || 'System'}</TableCell>
                         <TableCell className="text-muted-foreground text-xs italic">{t.reason || '-'}</TableCell>
+                        {isAdmin && (
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteTransaction(t.id)}>
+                                  <Trash2 className="h-4 w-4 mr-2" /> Delete Record
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        )}
                       </TableRow>
                     )
                   })}
-                  {!transactions?.length && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
-                        No transactions recorded yet.
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             )}
@@ -156,10 +182,8 @@ export default function StockTrackingPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Movement Type</Label>
-                  <Select defaultValue="STOCK_IN">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
+                  <Select value={form.type} onValueChange={v => setForm(p => ({...p, type: v}))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="STOCK_IN">Stock Entry (In)</SelectItem>
                       <SelectItem value="STOCK_OUT_TRANSFER">Stock Transfer (Out)</SelectItem>
@@ -169,10 +193,8 @@ export default function StockTrackingPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Product</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select product" />
-                    </SelectTrigger>
+                  <Select value={form.productId} onValueChange={v => setForm(p => ({...p, productId: v}))}>
+                    <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
                     <SelectContent>
                       {products?.map(p => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
@@ -182,39 +204,23 @@ export default function StockTrackingPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Quantity</Label>
-                  <Input type="number" placeholder="Enter amount" />
+                  <Input type="number" placeholder="Enter amount" value={form.quantity} onChange={e => setForm(p => ({...p, quantity: e.target.value}))} />
                 </div>
                 <div className="space-y-2">
                   <Label>Reason/Notes (Optional)</Label>
-                  <Textarea placeholder="Add a reason for this movement..." />
+                  <Textarea placeholder="Add a reason for this movement..." value={form.reason} onChange={e => setForm(p => ({...p, reason: e.target.value}))} />
                 </div>
-                <Button className="w-full">Submit Transaction</Button>
+                <Button className="w-full" onClick={handleSubmitTransaction}>Submit Transaction</Button>
               </CardContent>
             </Card>
 
             <div className="space-y-4">
               <Card className="bg-primary text-primary-foreground">
-                <CardHeader>
-                  <CardTitle>Tips for Staff</CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle>Operational Guidelines</CardTitle></CardHeader>
                 <CardContent className="text-sm space-y-2 opacity-90">
-                  <p>• Always double-check weights before logging.</p>
-                  <p>• Provide clear reasons for waste (e.g., "bruised", "expired").</p>
-                  <p>• Log "Stock In" immediately after delivery to keep alerts accurate.</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Current Stock Preview</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {products?.slice(0, 5).map(p => (
-                    <div key={p.id} className="flex justify-between items-center text-sm">
-                      <span>{p.name}</span>
-                      <span className="font-bold">{p.currentStockQuantity} {p.unitOfMeasure}</span>
-                    </div>
-                  ))}
-                  <Button variant="link" className="p-0 h-auto text-xs" onClick={() => setActiveTab('history')}>View all history</Button>
+                  <p>• Staff can log entries, sales, and waste.</p>
+                  <p>• Only Admins can modify or delete historical records.</p>
+                  <p>• Ensure all weights are accurate before submission.</p>
                 </CardContent>
               </Card>
             </div>

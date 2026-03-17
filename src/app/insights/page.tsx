@@ -3,24 +3,14 @@
 import React, { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { BrainCircuit, Sparkles, Loader2, ArrowRightCircle, CheckCircle2, Lock } from "lucide-react"
+import { BrainCircuit, Sparkles, Loader2, ArrowRightCircle, CheckCircle2 } from "lucide-react"
 import { aiInventoryInsights, AIInventoryInsightsOutput } from '@/ai/flows/ai-inventory-insights'
 import { MOCK_PRODUCTS, MOCK_TRANSACTIONS } from '../lib/mock-data'
 import { Badge } from '@/components/ui/badge'
-import { useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
-import { doc } from 'firebase/firestore'
 
 export default function AIInsightsPage() {
   const [loading, setLoading] = useState(false)
   const [insights, setInsights] = useState<AIInventoryInsightsOutput | null>(null)
-  const db = useFirestore()
-  const { user } = useUser()
-
-  const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
-  const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
-
-  const isSuperadmin = user?.email === 'markken@gulayan.ph'
-  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
   const generateInsights = async () => {
     setLoading(true)
@@ -51,21 +41,6 @@ export default function AIInsightsPage() {
     }
   }
 
-  if (isProfileLoading) {
-    return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin opacity-20" /></div>
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
-        <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center text-destructive"><Lock className="h-8 w-8" /></div>
-        <h2 className="text-2xl font-headline font-bold">Access Denied</h2>
-        <p className="text-muted-foreground max-w-sm">This section is restricted to administrators.</p>
-        <Button asChild variant="outline"><a href="/">Dashboard</a></Button>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -87,14 +62,6 @@ export default function AIInsightsPage() {
           <h2 className="text-xl font-headline font-semibold">Ready to analyze your store?</h2>
           <p className="text-muted-foreground max-w-sm mt-2">Our AI agent will review your current stock levels and sales history to identify trends and provide restocking suggestions.</p>
         </Card>
-      )}
-
-      {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-60 pointer-events-none grayscale">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="h-40 bg-muted animate-pulse rounded-lg" />
-          ))}
-        </div>
       )}
 
       {insights && (
