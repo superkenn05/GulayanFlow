@@ -47,7 +47,6 @@ export default function OrdersPage() {
   const { data: profiles, isLoading: profilesLoading } = useCollection<UserProfile>(profilesQuery)
 
   // 2. Fetch ALL pending orders across all customers for red dot indicators
-  // Filtering for 'pending' status requires a COLLECTION_GROUP_ASC index
   const pendingOrdersGroupQuery = useMemoFirebase(() => 
     isAuthenticated ? query(
       collectionGroup(db, 'orders'),
