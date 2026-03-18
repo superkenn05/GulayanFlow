@@ -1,6 +1,7 @@
+
 "use client"
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -24,20 +25,26 @@ import { toast } from '@/hooks/use-toast'
 
 export default function StockTrackingPage() {
   const [activeTab, setActiveTab] = useState('history')
+  const [mounted, setMounted] = useState(false)
   const db = useFirestore()
-  const { user } = useUser()
+  const { user, isUserLoading } = useUser()
 
-  const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Explicit guard: Only run queries when auth is definitely ready
+  const isReady = mounted && !isUserLoading && !!user && !user.isAnonymous
+
+  const staffRef = useMemoFirebase(() => isReady ? doc(db, 'staffUsers', user.uid) : null, [db, user, isReady])
   const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
 
   const isSuperadmin = user?.email === 'markken@gulayan.ph'
   const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
-  const productsQuery = useMemoFirebase(() => user ? query(collection(db, 'products'), orderBy('name', 'asc')) : null, [db, user])
-  const transactionsQuery = useMemoFirebase(() => user ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(50)) : null, [db, user])
-  
-  // Guard: Only fetch the staff directory if the user is an Admin/Superadmin to avoid permission errors
-  const staffQuery = useMemoFirebase(() => (user && isAdmin) ? query(collection(db, 'staffUsers')) : null, [db, user, isAdmin])
+  const productsQuery = useMemoFirebase(() => isReady ? query(collection(db, 'products'), orderBy('name', 'asc')) : null, [db, isReady])
+  const transactionsQuery = useMemoFirebase(() => isReady ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(50)) : null, [db, isReady])
+  const staffQuery = useMemoFirebase(() => (isReady && isAdmin) ? query(collection(db, 'staffUsers')) : null, [db, isReady, isAdmin])
 
   const { data: products } = useCollection(productsQuery)
   const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery)
@@ -88,7 +95,13 @@ export default function StockTrackingPage() {
     toast({ title: "Record Deleted" })
   }
 
-  if (isProfileLoading) return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin opacity-20" /></div>
+  if (!mounted || isUserLoading || isProfileLoading || !user) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">

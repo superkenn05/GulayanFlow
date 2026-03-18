@@ -29,7 +29,7 @@ export default function DashboardPage() {
     setMounted(true)
   }, [])
 
-  // Explicit check: Wait for user to be ready before defining queries
+  // Explicit check: Only run queries when auth is definitely ready and we are client-side
   const isReady = mounted && !isUserLoading && !!user && !user.isAnonymous
 
   const staffRef = useMemoFirebase(() => isReady ? doc(db, 'staffUsers', user.uid) : null, [db, user, isReady])

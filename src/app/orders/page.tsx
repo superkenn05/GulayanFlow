@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useEffect, useState } from 'react'
@@ -24,7 +25,7 @@ export default function OrdersPage() {
     setMounted(true)
   }, [])
 
-  // Explicit check: Wait for user to be ready before defining queries
+  // Explicit guard: Do not run query unless user is authenticated and mounted
   const isReady = mounted && !isUserLoading && !!user && !user.isAnonymous
 
   const salesQuery = useMemoFirebase(() => 
