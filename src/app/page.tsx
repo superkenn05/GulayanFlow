@@ -34,7 +34,6 @@ import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@
 import { collection, query, orderBy, limit, doc, where } from 'firebase/firestore'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-import { PlaceHolderImages } from '@/lib/placeholder-images'
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
@@ -121,8 +120,6 @@ export default function DashboardPage() {
   const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--destructive))']
   const totalValue = products?.reduce((acc, p) => acc + ((p.currentStockQuantity || 0) * (p.pricePerUnit || 0)), 0) || 0
 
-  const bannerImage = PlaceHolderImages?.find(img => img.id === 'store_banner')?.imageUrl || 'https://picsum.photos/seed/gulayan/1200/400'
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
       {/* Header with Welcome */}
@@ -136,16 +133,6 @@ export default function DashboardPage() {
             <Button variant="outline">Print Reports</Button>
           </div>
         )}
-      </div>
-
-      {/* Hero Banner Section */}
-      <div className="relative w-full h-[220px] md:h-[320px] rounded-3xl overflow-hidden shadow-2xl group border-4 border-background">
-        <img 
-          src={bannerImage} 
-          alt="Gemma's Gulayan" 
-          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-          data-ai-hint="vegetable market"
-        />
       </div>
 
       {/* Stats Cards */}
