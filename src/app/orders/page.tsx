@@ -25,29 +25,33 @@ export default function OrdersPage() {
   }, [])
 
   // Guard: Only run queries when auth is definitely ready and we are client-side
-  const isReady = mounted && !isUserLoading && !!user && !user.isAnonymous
+  const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous
 
   const salesQuery = useMemoFirebase(() => 
-    isReady ? query(
+    isAuthenticated ? query(
       collection(db, 'stockTransactions'), 
       where('transactionType', '==', 'STOCK_OUT_SALE'),
       orderBy('transactionDate', 'desc'),
       limit(50)
     ) : null, 
-    [db, isReady]
+    [db, isAuthenticated]
   )
   
-  const productsQuery = useMemoFirebase(() => isReady ? query(collection(db, 'products')) : null, [db, isReady])
+  const productsQuery = useMemoFirebase(() => isAuthenticated ? query(collection(db, 'products')) : null, [db, isAuthenticated])
 
   const { data: sales, isLoading: salesLoading } = useCollection(salesQuery)
   const { data: products } = useCollection(productsQuery)
 
-  if (!mounted || isUserLoading || !user || user.isAnonymous) {
+  if (!mounted || isUserLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
       </div>
     )
+  }
+
+  if (!user || user.isAnonymous) {
+    return null;
   }
 
   return (

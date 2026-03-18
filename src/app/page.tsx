@@ -28,37 +28,41 @@ export default function DashboardPage() {
     setMounted(true)
   }, [])
 
-  // Guard: Only run queries when auth is ready and component is mounted
-  const isReady = mounted && !isUserLoading && !!user && !user.isAnonymous
+  // Guard: Only run queries when auth is definitely ready and component is mounted
+  const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous
 
-  const staffRef = useMemoFirebase(() => isReady ? doc(db, 'staffUsers', user.uid) : null, [db, user, isReady])
+  const staffRef = useMemoFirebase(() => isAuthenticated ? doc(db, 'staffUsers', user.uid) : null, [db, user, isAuthenticated])
   const { data: profile } = useDoc(staffRef)
 
   const productsQuery = useMemoFirebase(() => 
-    isReady ? query(collection(db, 'products')) : null, 
-    [db, isReady]
+    isAuthenticated ? query(collection(db, 'products')) : null, 
+    [db, isAuthenticated]
   )
   
   const transactionsQuery = useMemoFirebase(() => 
-    isReady ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(10)) : null, 
-    [db, isReady]
+    isAuthenticated ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(10)) : null, 
+    [db, isAuthenticated]
   )
   
   const salesQuery = useMemoFirebase(() => 
-    isReady ? query(collection(db, 'stockTransactions'), where('transactionType', '==', 'STOCK_OUT_SALE')) : null, 
-    [db, isReady]
+    isAuthenticated ? query(collection(db, 'stockTransactions'), where('transactionType', '==', 'STOCK_OUT_SALE')) : null, 
+    [db, isAuthenticated]
   )
 
   const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
   const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery)
   const { data: sales } = useCollection(salesQuery)
 
-  if (!mounted || isUserLoading || !user || user.isAnonymous) {
+  if (!mounted || isUserLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
       </div>
     )
+  }
+
+  if (!user || user.isAnonymous) {
+    return null; // Layout handles redirect or login view
   }
 
   const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin'

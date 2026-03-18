@@ -1,36 +1,30 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    
+    // Helper function to check if the user is authenticated
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isSuperAdmin() {
-      return request.auth != null &&
-             request.auth.token.email == 'markken@gulayan.ph';
-    }
-
-    // Staff Users
+    // Staff Users: Allow read/write for any signed-in staff
     match /staffUsers/{userId} {
-      allow get, write: if request.auth.uid == userId || isSuperAdmin();
-      allow list: if isSignedIn();
+      allow read, write: if isSignedIn();
     }
 
-    // Categories
+    // Categories: Allow read/write for any signed-in staff
     match /categories/{id} {
       allow read, write: if isSignedIn();
     }
 
-    // Products
+    // Products: Allow read/write for any signed-in staff
     match /products/{id} {
       allow read, write: if isSignedIn();
     }
 
-    // Stock Transactions
+    // Stock Transactions: Allow read/write for any signed-in staff
     match /stockTransactions/{id} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn();
+      allow read, write: if isSignedIn();
     }
   }
 }
