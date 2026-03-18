@@ -1,5 +1,43 @@
+
 {
   "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Customer or user profile containing personal and contact details.",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "profileImageUrl": { "type": "string", "format": "uri" }
+      },
+      "required": ["id", "email"]
+    },
+    "Order": {
+      "title": "Order",
+      "type": "object",
+      "description": "Details of an order placed by a user.",
+      "properties": {
+        "id": { "type": "string" },
+        "orderDate": { "type": "string", "format": "date-time" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "completed", "cancelled"] },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "productId": { "type": "string" },
+              "productName": { "type": "string" },
+              "quantity": { "type": "number" },
+              "price": { "type": "number" }
+            }
+          }
+        }
+      }
+    },
     "Category": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Category",
@@ -194,72 +232,29 @@
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/staffUsers/{staffUserId}",
-        "definition": {
-          "entityName": "StaffUser",
-          "schema": {
-            "$ref": "#/backend/entities/StaffUser"
-          },
-          "description": "Stores individual staff user profiles, including their assigned role for DBAC (Database Access Control). Access is path-based; users can only manage their own profile. Includes denormalized 'role' field for authorization.",
-          "params": [
-            {
-              "name": "staffUserId",
-              "description": "The unique identifier of the staff member, corresponding to Firebase Authentication UID."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/categories/{categoryId}",
-        "definition": {
-          "entityName": "Category",
-          "schema": {
-            "$ref": "#/backend/entities/Category"
-          },
-          "description": "Manages product categories (e.g., 'Vegetables', 'Fruits'). This is a global, top-level collection accessible to all authorized staff for management and viewing. Security is role-based for staff members.",
-          "params": [
-            {
-              "name": "categoryId",
-              "description": "The unique identifier for a product category."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/products/{productId}",
-        "definition": {
-          "entityName": "Product",
-          "schema": {
-            "$ref": "#/backend/entities/Product"
-          },
-          "description": "Contains details for all inventory products, including stock levels and pricing. This is a global, top-level collection accessible to all authorized staff for management and viewing. Security is role-based for staff members.",
-          "params": [
-            {
-              "name": "productId",
-              "description": "The unique identifier for a product."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/stockTransactions/{transactionId}",
-        "definition": {
-          "entityName": "StockTransaction",
-          "schema": {
-            "$ref": "#/backend/entities/StockTransaction"
-          },
-          "description": "Records all stock movements (in, out, waste). This is a global, top-level collection accessible to all authorized staff for logging and viewing history. Includes 'productId' and 'staffUserId' as direct references for query efficiency and clear data relationships, without creating hierarchical authorization dependencies. Security is role-based for staff members.",
-          "params": [
-            {
-              "name": "transactionId",
-              "description": "The unique identifier for a stock transaction record."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore structure for GulayanFlow is designed with a flat, top-level collection approach to maximize Authorization Independence and ensure efficient Query-Aware Permissions (QAPs). Each core entity (StaffUser, Category, Product, StockTransaction) resides in its own root-level collection, preventing deeply nested dependencies that often lead to complex and brittle security rules. The authorization model is based on Database Access Control (DBAC), where staff roles are explicitly stored in the 'staffUsers' collection.\n\n**Authorization Independence:** All collections are top-level. This explicitly avoids scenarios where a subcollection's access relies on `get()` operations on parent documents for authorization, thereby supporting atomic writes and simplifying transaction management. For instance, a `StockTransaction` document explicitly includes `productId` and `staffUserId` as direct references. While these link to other entities, the authorization for creating or accessing a `StockTransaction` document does not *depend* on a `get()` call to the related `Product` or `StaffUser` document within the security rule. Instead, the rules will check the *requesting user's* role, which is derived from `get(/staffUsers/request.auth.uid)`. This ensures that each document's authorization can be evaluated independently without complex, chain-of-custody checks.\n\n**Query-Aware Permissions (QAPs):**\n*   **`/staffUsers/{staffUserId}`:** This collection is secured using path-based ownership. A staff member (`request.auth.uid`) can only read and update their *own* profile (`/staffUsers/request.auth.uid`). This inherently makes `list` operations secure for individual users, as they can only query their own specific document. An 'Admin' role would be required to list all staff profiles, which can be easily enforced by checking the admin's role in the security rules.\n*   **`/categories/{categoryId}`, `/products/{productId}`, `/stockTransactions/{transactionId}`:** These collections hold shared operational data. Their security posture is homogeneous: all documents within these collections are accessible (read/write/list) to *any* authenticated staff member with the appropriate role (e.g., 'Admin' or 'Staff'). This is achieved by having a simple, overarching rule that checks the `role` field of `get(/staffUsers/request.auth.uid)`. Because access is based on the *requesting user's role* rather than specific document content or hierarchical relationships, `list` operations are inherently secure and efficient. The client can query all products or all transactions, and Firestore security rules will permit or deny the *entire request* based on the user's role, not by filtering individual documents.\n\nThis design prioritizes clarity, debuggability, and scalability by centralizing role management and ensuring that authorization logic for data access is explicit and structurally independent."
+    "/userProfiles/{userId}": {
+      "schema": "UserProfile",
+      "description": "Customer and client profiles."
+    },
+    "/userProfiles/{userId}/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Orders placed by a specific user."
+    },
+    "/staffUsers/{staffUserId}": {
+      "schema": "StaffUser",
+      "description": "Internal staff member profiles."
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Product categories."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Inventory products."
+    },
+    "/stockTransactions/{transactionId}": {
+      "schema": "StockTransaction",
+      "description": "Log of all stock movements."
+    }
   }
 }
