@@ -27,14 +27,15 @@ export default function OrdersPage() {
   // Guard: Only run queries when auth is definitely ready and we are client-side
   const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous
 
-  // Simplified query: Removed explicit orderBy to prevent index requirement masking
+  // Fetch only the orders recorded by the current staff user profile
   const salesQuery = useMemoFirebase(() => 
     isAuthenticated ? query(
       collection(db, 'stockTransactions'), 
       where('transactionType', '==', 'STOCK_OUT_SALE'),
+      where('staffUserId', '==', user.uid),
       limit(50)
     ) : null, 
-    [db, isAuthenticated]
+    [db, isAuthenticated, user?.uid]
   )
   
   const productsQuery = useMemoFirebase(() => isAuthenticated ? query(collection(db, 'products')) : null, [db, isAuthenticated])
@@ -59,9 +60,9 @@ export default function OrdersPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-2">
-            Orders <ShoppingBasket className="h-6 w-6" />
+            My Orders <ShoppingBasket className="h-6 w-6" />
           </h1>
-          <p className="text-muted-foreground">Track sales and customer transactions recorded in the system.</p>
+          <p className="text-muted-foreground">Transactions recorded under your staff profile.</p>
         </div>
         <Button className="gap-2">
           <Plus className="h-4 w-4" /> New Sale
@@ -70,8 +71,8 @@ export default function OrdersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Sales History</CardTitle>
-          <CardDescription>A live list of all sales recorded via stock movements.</CardDescription>
+          <CardTitle>Recorded Sales History</CardTitle>
+          <CardDescription>All customer transactions logged by you.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -125,14 +126,14 @@ export default function OrdersPage() {
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-10 opacity-50">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-                    Loading orders...
+                    Loading your orders...
                   </TableCell>
                 </TableRow>
               )}
               {!salesLoading && sales?.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-10 text-muted-foreground italic">
-                    No sales recorded yet. Try adding a "Stock Out (Sale)" from the Stock Tracking page.
+                    No sales recorded by your account yet.
                   </TableCell>
                 </TableRow>
               )}

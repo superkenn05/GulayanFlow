@@ -48,14 +48,24 @@ export default function DashboardPage() {
     [db, isAuthenticated]
   )
   
+  // Recent activity filtered by the current user profile
   const transactionsQuery = useMemoFirebase(() => 
-    isAuthenticated ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(10)) : null, 
-    [db, isAuthenticated]
+    isAuthenticated ? query(
+      collection(db, 'stockTransactions'), 
+      where('staffUserId', '==', user.uid),
+      orderBy('transactionDate', 'desc'), 
+      limit(10)
+    ) : null, 
+    [db, isAuthenticated, user?.uid]
   )
   
   const salesQuery = useMemoFirebase(() => 
-    isAuthenticated ? query(collection(db, 'stockTransactions'), where('transactionType', '==', 'STOCK_OUT_SALE')) : null, 
-    [db, isAuthenticated]
+    isAuthenticated ? query(
+      collection(db, 'stockTransactions'), 
+      where('transactionType', '==', 'STOCK_OUT_SALE'),
+      where('staffUserId', '==', user.uid)
+    ) : null, 
+    [db, isAuthenticated, user?.uid]
   )
 
   const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
@@ -102,7 +112,7 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back{profile?.name ? `, ${profile.name}` : ''}! Here's what's happening today.</p>
+          <p className="text-muted-foreground">Welcome back{profile?.name ? `, ${profile.name}` : ''}! Here's your personal performance overview.</p>
         </div>
         {isAdmin && (
           <div className="flex gap-2">
@@ -124,12 +134,12 @@ export default function DashboardPage() {
         </Card>
         <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+            <CardTitle className="text-sm font-medium">My Sales</CardTitle>
             <ShoppingBasket className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalOrders}</div>
-            <p className="text-xs text-muted-foreground">Recorded sales</p>
+            <p className="text-xs text-muted-foreground">Recorded by you</p>
           </CardContent>
         </Card>
         <Card className="hover:shadow-md transition-shadow border-red-100 bg-red-50/10">
@@ -151,7 +161,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">₱{totalValue.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">Estimated total</p>
+              <p className="text-xs text-muted-foreground">Store-wide estimate</p>
             </CardContent>
           </Card>
         ) : (
@@ -238,8 +248,8 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest stock movements across all categories</CardDescription>
+          <CardTitle>Your Recent Activity</CardTitle>
+          <CardDescription>Latest stock movements logged by your account</CardDescription>
         </CardHeader>
         <CardContent>
           {transactionsLoading ? (
@@ -281,7 +291,7 @@ export default function DashboardPage() {
                 )
               })}
               {!transactions?.length && (
-                <p className="text-center text-sm text-muted-foreground py-4">No recent activity recorded.</p>
+                <p className="text-center text-sm text-muted-foreground py-4">No recent activity recorded by you.</p>
               )}
             </div>
           )}
