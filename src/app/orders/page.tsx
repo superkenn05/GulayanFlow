@@ -15,7 +15,7 @@ import {
   DialogDescription 
 } from "@/components/ui/dialog"
 import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from '@/firebase'
-import { collection, query, orderBy, doc, collectionGroup, where } from 'firebase/firestore'
+import { collection, query, orderBy, doc, collectionGroup } from 'firebase/firestore'
 import { Order, UserProfile } from '../types'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
@@ -43,12 +43,13 @@ export default function OrdersPage() {
   )
   const { data: profiles, isLoading: profilesLoading } = useCollection<UserProfile>(profilesQuery)
 
-  // 2. Fetch ALL pending orders across all customers to show indicators
-  const allPendingOrdersQuery = useMemoFirebase(() => 
-    isAuthenticated ? query(collectionGroup(db, 'orders'), where('status', '==', 'pending')) : null,
+  // 2. Fetch ALL orders across all customers to show indicators
+  // Note: We fetch all and filter client-side to handle missing index errors more gracefully
+  const allOrdersGroupQuery = useMemoFirebase(() => 
+    isAuthenticated ? query(collectionGroup(db, 'orders')) : null,
     [db, isAuthenticated]
   )
-  const { data: allPendingOrders } = useCollection<Order>(allPendingOrdersQuery)
+  const { data: allOrders, error: groupError } = useCollection<Order>(allOrdersGroupQuery)
 
   // 3. Fetch the specific UserProfile document when selected
   const activeProfileRef = useMemoFirebase(() => 
@@ -106,6 +107,14 @@ export default function OrdersPage() {
         </div>
       </div>
 
+      {groupError && (
+        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-xs">
+          <strong>Notice:</strong> Real-time cross-customer indicators are being initialized. 
+          Please ensure you have created the required Firestore Collection Group index by clicking 
+          the link in the error overlay or console.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Customer Directory */}
         <Card className="lg:col-span-4 h-fit">
@@ -128,9 +137,9 @@ export default function OrdersPage() {
                 {profilesLoading ? (
                   <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto opacity-20" /></div>
                 ) : filteredProfiles?.map((p) => {
-                  // Logic to check if this user has any pending orders
-                  const hasPendingOrder = allPendingOrders?.some(order => 
-                    order.userId === p.id || order.id?.includes(p.id)
+                  // Logic to check if this user has any pending orders (Client-side filtering)
+                  const hasPendingOrder = allOrders?.some(order => 
+                    (order.userId === p.id || order.id?.includes(p.id)) && order.status === 'pending'
                   );
 
                   return (
@@ -146,15 +155,15 @@ export default function OrdersPage() {
                         <div className="overflow-hidden">
                           <div className="flex items-center gap-2">
                             <p className="font-bold truncate">{p.firstName} {p.lastName}</p>
-                            {hasPendingOrder && (
-                              <span className="flex h-2 w-2 rounded-full bg-destructive animate-pulse" title="Has Pending Orders" />
-                            )}
                           </div>
                           <p className="text-xs text-muted-foreground truncate">{p.email}</p>
                         </div>
                       </div>
                       
                       <div className="flex items-center gap-3">
+                        {hasPendingOrder && (
+                          <span className="h-3 w-3 rounded-full bg-destructive animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" title="Has Pending Orders" />
+                        )}
                         <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${activeProfileId === p.id ? 'translate-x-1' : 'opacity-0 group-hover:opacity-100'}`} />
                       </div>
                     </button>

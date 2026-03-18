@@ -33,7 +33,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar"
 import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
-import { doc, collectionGroup, query, where, onSnapshot } from "firebase/firestore"
+import { doc, collectionGroup, query, onSnapshot } from "firebase/firestore"
 import { Badge } from "@/components/ui/badge"
 
 const items = [
@@ -59,12 +59,21 @@ export function AppSidebar() {
   const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
 
   // Listen for ANY pending orders store-wide
+  // We use a broader query and filter client-side to be more resilient to missing index errors
   React.useEffect(() => {
     if (!db || !user || user.isAnonymous) return
-    const q = query(collectionGroup(db, 'orders'), where('status', '==', 'pending'))
+    
+    // Attempt collection group query. 
+    // If the index link in the error hasn't been clicked, this will fail gracefully.
+    const q = query(collectionGroup(db, 'orders'))
+    
     const unsub = onSnapshot(q, (snapshot) => {
-      setPendingCount(snapshot.size)
+      const pending = snapshot.docs.filter(d => d.data().status === 'pending')
+      setPendingCount(pending.length)
+    }, (error) => {
+      console.warn("Collection Group index likely missing for 'orders'. Click the link in your console to fix this.", error)
     })
+    
     return () => unsub()
   }, [db, user])
 
