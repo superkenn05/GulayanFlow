@@ -6,25 +6,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ShoppingBasket, Eye, Loader2, MapPin, CreditCard, Calendar, User, Search, ChevronRight } from "lucide-react"
+import { ShoppingBasket, Eye, Loader2, MapPin, CreditCard, Calendar, User, Search, ChevronRight, CheckCircle2 } from "lucide-react"
 import { 
   Dialog, 
   DialogContent, 
   DialogHeader, 
-  DialogTitle 
+  DialogTitle,
+  DialogFooter
 } from "@/components/ui/dialog"
 import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from '@/firebase'
-import { collection, query, orderBy, doc, collectionGroup } from 'firebase/firestore'
-import { Order, UserProfile } from '../types'
+import { collection, query, orderBy, doc, collectionGroup, serverTimestamp, increment, getDoc } from 'firebase/firestore'
+import { Order, UserProfile, Product } from '../types'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates'
+import { toast } from '@/hooks/use-toast'
 
 export default function OrdersPage() {
   const [mounted, setMounted] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [isProcessing, setIsProcessing] = useState(false)
   
   const db = useFirestore()
   const { user, isUserLoading } = useUser()
@@ -71,6 +75,60 @@ export default function OrdersPage() {
     `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.email?.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  const handleCompleteOrder = async (order: Order) => {
+    if (!activeProfileId || isProcessing) return
+    setIsProcessing(true)
+
+    try {
+      // 1. Process each item for stock deduction
+      for (const item of order.items) {
+        const productRef = doc(db, 'products', item.productId)
+        
+        // Use non-blocking increment for efficiency
+        updateDocumentNonBlocking(productRef, {
+          currentStockQuantity: increment(-item.quantity),
+          updatedAt: serverTimestamp()
+        })
+
+        // 2. Log a STOCK_OUT_SALE transaction
+        const transactionRef = doc(collection(db, 'stockTransactions'))
+        setDocumentNonBlocking(transactionRef, {
+          id: transactionRef.id,
+          productId: item.productId,
+          staffUserId: user?.uid || 'system',
+          transactionType: 'STOCK_OUT_SALE',
+          quantityChange: -item.quantity,
+          transactionDate: serverTimestamp(),
+          reason: `Automatic stockout for Order #${order.id.substring(0, 8)}`
+        }, { merge: true })
+      }
+
+      // 3. Update Order Status to completed
+      const orderRef = doc(db, 'userProfiles', activeProfileId, 'orders', order.id)
+      updateDocumentNonBlocking(orderRef, {
+        status: 'completed',
+        updatedAt: serverTimestamp(),
+        processedAt: serverTimestamp(),
+        processedBy: user?.uid
+      })
+
+      toast({
+        title: "Order Completed",
+        description: `Inventory updated for ${order.items.length} items.`,
+      })
+      setSelectedOrder(null)
+    } catch (error) {
+      console.error("Failed to complete order:", error)
+      toast({
+        title: "Error",
+        description: "Failed to process stock deduction.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsProcessing(false)
+    }
+  }
 
   if (!mounted || isUserLoading) {
     return (
@@ -352,6 +410,20 @@ export default function OrdersPage() {
               </div>
             </div>
           )}
+          
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setSelectedOrder(null)}>Close</Button>
+            {selectedOrder?.status === 'pending' && (
+              <Button 
+                className="gap-2 bg-primary hover:bg-primary/90" 
+                onClick={() => handleCompleteOrder(selectedOrder)}
+                disabled={isProcessing}
+              >
+                {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Complete & Deduct Stock
+              </Button>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
