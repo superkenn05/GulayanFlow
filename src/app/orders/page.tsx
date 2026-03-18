@@ -222,7 +222,6 @@ export default function OrdersPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Order History</CardTitle>
-                  <CardDescription>Live updates for /userProfiles/{activeProfileId}/orders</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Table>
