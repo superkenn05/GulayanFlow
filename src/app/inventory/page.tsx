@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useRef, useEffect } from 'react'
@@ -457,34 +456,34 @@ export default function InventoryPage() {
                     {isLowStock && <Badge className="bg-destructive text-destructive-foreground">LOW STOCK</Badge>}
                     {product.currentStockQuantity <= 0 && <Badge variant="outline" className="bg-background/80 backdrop-blur-md">OUT OF STOCK</Badge>}
                   </div>
-                  {isAdmin && (
-                    <div className="absolute top-2 right-2">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="secondary" size="icon" className="h-8 w-8 bg-background/80 backdrop-blur-md shadow-sm border border-border/50">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuLabel>Product Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleEditClick(product)} className="cursor-pointer">
-                            <Edit className="h-4 w-4 mr-2" /> Edit Details
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive cursor-pointer" onClick={() => handleDeleteProduct(product.id, product.name)}>
-                            <Trash2 className="h-4 w-4 mr-2" /> Delete Product
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  )}
                 </div>
                 <CardHeader className="p-4 pb-0">
                   <div className="flex justify-between items-start">
-                    <div>
+                    <div className="flex-1 overflow-hidden">
                       <CardTitle className="text-lg line-clamp-1">{product.name}</CardTitle>
                       <CardDescription>{category?.name || 'Uncategorized'}</CardDescription>
                     </div>
+                    {isAdmin && (
+                      <div className="ml-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                              <MoreHorizontal className="h-5 w-5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuLabel>Product Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleEditClick(product)} className="cursor-pointer">
+                              <Edit className="h-4 w-4 mr-2" /> Edit Details
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive cursor-pointer" onClick={() => handleDeleteProduct(product.id, product.name)}>
+                              <Trash2 className="h-4 w-4 mr-2" /> Delete Product
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="p-4 space-y-2">
