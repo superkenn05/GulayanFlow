@@ -66,6 +66,7 @@
         "unitOfMeasure": { "type": "string" },
         "currentStockQuantity": { "type": "number" },
         "lowStockThreshold": { "type": "number" },
+        "isPopular": { "type": "boolean", "default": false },
         "nutritionalValues": {
           "type": "object",
           "properties": {

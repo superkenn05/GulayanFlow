@@ -23,6 +23,7 @@ export type Product = {
   imageUrl: string;
   description: string;
   lowStockThreshold?: number;
+  isPopular?: boolean;
   nutritionalValues?: NutritionalValues;
 };
 

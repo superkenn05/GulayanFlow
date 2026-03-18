@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useRef, useEffect } from 'react'
@@ -5,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Search, Filter, Edit, Trash2, MoreHorizontal, Sparkles, Loader2, Upload, Image as ImageIcon, X } from "lucide-react"
+import { Plus, Search, Filter, Edit, Trash2, MoreHorizontal, Sparkles, Loader2, Upload, Image as ImageIcon, X, Star } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
 import { getNutritionalValues } from '@/ai/flows/nutritional-values-flow'
 import { toast } from '@/hooks/use-toast'
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
@@ -79,6 +81,7 @@ export default function InventoryPage() {
     unitOfMeasure: 'kg',
     currentStockQuantity: '',
     lowStockThreshold: '10',
+    isPopular: false,
     imageUrl: '',
     calories: '',
     protein: '',
@@ -100,6 +103,7 @@ export default function InventoryPage() {
       unitOfMeasure: product.unitOfMeasure || 'kg',
       currentStockQuantity: product.currentStockQuantity?.toString() || '',
       lowStockThreshold: product.lowStockThreshold?.toString() || '10',
+      isPopular: !!product.isPopular,
       imageUrl: product.imageUrl || '',
       calories: product.nutritionalValues?.calories || '',
       protein: product.nutritionalValues?.protein || '',
@@ -171,6 +175,7 @@ export default function InventoryPage() {
         unitOfMeasure: formData.unitOfMeasure,
         currentStockQuantity: parseFloat(formData.currentStockQuantity || '0'),
         lowStockThreshold: parseFloat(formData.lowStockThreshold || '10'),
+        isPopular: formData.isPopular,
         updatedAt: serverTimestamp(),
         nutritionalValues: {
           calories: formData.calories,
@@ -211,6 +216,7 @@ export default function InventoryPage() {
       unitOfMeasure: 'kg',
       currentStockQuantity: '',
       lowStockThreshold: '10',
+      isPopular: false,
       imageUrl: '',
       calories: '',
       protein: '',
@@ -299,6 +305,17 @@ export default function InventoryPage() {
                       <div className="space-y-2">
                         <Label htmlFor="description">Description</Label>
                         <Textarea id="description" placeholder="Brief details about the product..." className="h-24" value={formData.description} onChange={(e) => setFormData(p => ({ ...p, description: e.target.value }))} />
+                      </div>
+                      <div className="flex items-center space-x-2 border p-3 rounded-lg bg-muted/20">
+                        <Switch 
+                          id="popular" 
+                          checked={formData.isPopular} 
+                          onCheckedChange={(val) => setFormData(p => ({ ...p, isPopular: val }))} 
+                        />
+                        <Label htmlFor="popular" className="flex items-center gap-2 cursor-pointer">
+                          <Star className={cn("h-4 w-4", formData.isPopular ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground")} />
+                          Mark as Popular Now
+                        </Label>
                       </div>
                     </div>
 
@@ -432,6 +449,11 @@ export default function InventoryPage() {
                 <div className="relative h-48 bg-muted overflow-hidden">
                   <img src={product.imageUrl || 'https://picsum.photos/seed/produce/600/400'} alt={product.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   <div className="absolute top-2 left-2 flex flex-col gap-2">
+                    {product.isPopular && (
+                      <Badge className="bg-yellow-400 text-yellow-950 border-none flex items-center gap-1">
+                        <Star className="h-3 w-3 fill-yellow-950" /> POPULAR
+                      </Badge>
+                    )}
                     {isLowStock && <Badge className="bg-destructive text-destructive-foreground">LOW STOCK</Badge>}
                     {product.currentStockQuantity <= 0 && <Badge variant="outline" className="bg-background/80 backdrop-blur-md">OUT OF STOCK</Badge>}
                   </div>
