@@ -34,6 +34,7 @@ service cloud.firestore {
     }
     
     // Explicitly handle collection-level listing for transactions to prevent query denials
+    // though 'read' on the document path usually handles this, we be explicit here.
     match /stockTransactions {
       allow list: if request.auth != null;
     }
