@@ -1,16 +1,10 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if the user is authenticated
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // Baseline rule for development and internal tools: Allow authenticated staff
-    // to read and write any document in any collection. This resolve 'list' permission issues.
-    match /{path=**} {
-      allow read, write: if isSignedIn();
+    // Explicitly allow all authenticated users to read and write
+    // to any collection. This is the "Clean Version" for MVP reliability.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }

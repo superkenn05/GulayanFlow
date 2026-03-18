@@ -27,11 +27,11 @@ export default function OrdersPage() {
   // Guard: Only run queries when auth is definitely ready and we are client-side
   const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous
 
+  // Simplified query: Removed explicit orderBy to prevent index requirement masking
   const salesQuery = useMemoFirebase(() => 
     isAuthenticated ? query(
       collection(db, 'stockTransactions'), 
       where('transactionType', '==', 'STOCK_OUT_SALE'),
-      orderBy('transactionDate', 'desc'),
       limit(50)
     ) : null, 
     [db, isAuthenticated]
