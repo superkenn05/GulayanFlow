@@ -47,6 +47,15 @@ export type Staff = {
   lastLogin: any;
 };
 
+export type UserProfile = {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  profileImageUrl?: string;
+};
+
 export type OrderItem = {
   productId: string;
   name: string;
