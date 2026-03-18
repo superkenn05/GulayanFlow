@@ -290,9 +290,6 @@ export default function OrdersPage() {
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
             <DialogTitle>Detailed Order Information</DialogTitle>
-            <DialogDescription className="font-mono text-[10px]">
-              ID: {selectedOrder?.id}
-            </DialogDescription>
           </DialogHeader>
           
           {selectedOrder && (
