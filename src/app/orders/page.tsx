@@ -43,7 +43,7 @@ export default function OrdersPage() {
   )
   const { data: profiles, isLoading: profilesLoading } = useCollection<UserProfile>(profilesQuery)
 
-  // 2. NEW: Fetch ALL pending orders across all customers to show red dot indicators
+  // 2. Fetch ALL pending orders across all customers to show indicators
   const allPendingOrdersQuery = useMemoFirebase(() => 
     isAuthenticated ? query(collectionGroup(db, 'orders'), where('status', '==', 'pending')) : null,
     [db, isAuthenticated]
@@ -70,7 +70,7 @@ export default function OrdersPage() {
   // Filter profiles based on search
   const filteredProfiles = profiles?.filter(p => 
     `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.email.toLowerCase().includes(searchQuery.toLowerCase())
+    p.email?.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   if (!mounted || isUserLoading) {
@@ -137,23 +137,24 @@ export default function OrdersPage() {
                       className={`relative w-full text-left p-4 hover:bg-muted/50 transition-colors flex items-center justify-between group ${activeProfileId === p.id ? 'bg-primary/5 border-r-4 border-primary' : ''}`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="relative">
-                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                            {p.firstName?.[0]}{p.lastName?.[0]}
-                          </div>
-                          {hasPendingOrder && (
-                            <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
-                            </span>
-                          )}
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                          {p.firstName?.[0]}{p.lastName?.[0]}
                         </div>
                         <div className="overflow-hidden">
                           <p className="font-bold truncate">{p.firstName} {p.lastName}</p>
                           <p className="text-xs text-muted-foreground truncate">{p.email}</p>
                         </div>
                       </div>
-                      <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${activeProfileId === p.id ? 'translate-x-1' : 'opacity-0 group-hover:opacity-100'}`} />
+                      
+                      <div className="flex items-center gap-3">
+                        {hasPendingOrder && (
+                          <div className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
+                          </div>
+                        )}
+                        <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${activeProfileId === p.id ? 'translate-x-1' : 'opacity-0 group-hover:opacity-100'}`} />
+                      </div>
                     </button>
                   )
                 })}
