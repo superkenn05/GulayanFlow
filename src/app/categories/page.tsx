@@ -1,6 +1,6 @@
 "use client"
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Plus, Edit, Trash2, Leaf, Apple, Carrot, Wheat, Flame, Loader2 } from "lucide-react"
@@ -18,17 +18,25 @@ const ICON_MAP: Record<string, any> = {
 }
 
 export default function CategoriesPage() {
+  const [mounted, setMounted] = useState(false)
   const db = useFirestore()
-  const { user } = useUser()
+  const { user, isUserLoading } = useUser()
 
-  const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
-  const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Guard: Only run queries when auth is ready and component is mounted
+  const isReady = mounted && !isUserLoading && !!user && !user.isAnonymous
+
+  const staffRef = useMemoFirebase(() => isReady ? doc(db, 'staffUsers', user.uid) : null, [db, user, isReady])
+  const { data: profile } = useDoc(staffRef)
 
   const isSuperadmin = user?.email === 'markken@gulayan.ph'
   const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
-  const categoriesQuery = useMemoFirebase(() => query(collection(db, 'categories'), orderBy('name', 'asc')), [db])
-  const productsQuery = useMemoFirebase(() => query(collection(db, 'products')), [db])
+  const categoriesQuery = useMemoFirebase(() => isReady ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db, isReady])
+  const productsQuery = useMemoFirebase(() => isReady ? query(collection(db, 'products')) : null, [db, isReady])
   
   const { data: categories, isLoading: categoriesLoading } = useCollection(categoriesQuery)
   const { data: products } = useCollection(productsQuery)
@@ -38,8 +46,12 @@ export default function CategoriesPage() {
     toast({ title: "Deleted", description: `${name} category removed.` })
   }
 
-  if (isProfileLoading) {
-    return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin opacity-20" /></div>
+  if (!mounted || isUserLoading || !user || user.isAnonymous) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+      </div>
+    )
   }
 
   return (

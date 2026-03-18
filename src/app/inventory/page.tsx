@@ -43,19 +43,30 @@ export default function InventoryPage() {
   const [open, setOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<any>(null)
   const [localPreview, setLocalPreview] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   const db = useFirestore()
-  const { user } = useUser()
+  const { user, isUserLoading } = useUser()
 
-  const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
+  useEffect(() => {
+    setMounted(true)
+    return () => {
+      if (localPreview) URL.revokeObjectURL(localPreview)
+    }
+  }, [localPreview])
+
+  // Guard: Only run queries when auth is ready and component is mounted
+  const isReady = mounted && !isUserLoading && !!user && !user.isAnonymous
+
+  const staffRef = useMemoFirebase(() => isReady ? doc(db, 'staffUsers', user.uid) : null, [db, user, isReady])
   const { data: profile } = useDoc(staffRef)
 
   const isSuperadmin = user?.email === 'markken@gulayan.ph'
   const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
 
-  const productsQuery = useMemoFirebase(() => query(collection(db, 'products'), orderBy('name', 'asc')), [db])
-  const categoriesQuery = useMemoFirebase(() => query(collection(db, 'categories'), orderBy('name', 'asc')), [db])
+  const productsQuery = useMemoFirebase(() => isReady ? query(collection(db, 'products'), orderBy('name', 'asc')) : null, [db, isReady])
+  const categoriesQuery = useMemoFirebase(() => isReady ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db, isReady])
 
   const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
   const { data: categories } = useCollection(categoriesQuery)
@@ -74,12 +85,6 @@ export default function InventoryPage() {
     carbs: '',
     fat: ''
   })
-
-  useEffect(() => {
-    return () => {
-      if (localPreview) URL.revokeObjectURL(localPreview)
-    }
-  }, [localPreview])
 
   const filteredProducts = products?.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -199,6 +204,14 @@ export default function InventoryPage() {
       updatedAt: serverTimestamp()
     })
     toast({ title: "Stock Updated", description: `${product.name} stock adjusted.` })
+  }
+
+  if (!mounted || isUserLoading || !user || user.isAnonymous) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+      </div>
+    )
   }
 
   return (
