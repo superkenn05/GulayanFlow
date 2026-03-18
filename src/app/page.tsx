@@ -28,17 +28,22 @@ export default function DashboardPage() {
     setMounted(true)
   }, [])
 
-  // Explicit check: Only run queries when auth is definitely ready and we are client-side
+  // Guard: Only run queries when auth is ready and component is mounted
   const isReady = mounted && !isUserLoading && !!user && !user.isAnonymous
 
   const staffRef = useMemoFirebase(() => isReady ? doc(db, 'staffUsers', user.uid) : null, [db, user, isReady])
   const { data: profile } = useDoc(staffRef)
 
-  const productsQuery = useMemoFirebase(() => isReady ? query(collection(db, 'products')) : null, [db, isReady])
+  const productsQuery = useMemoFirebase(() => 
+    isReady ? query(collection(db, 'products')) : null, 
+    [db, isReady]
+  )
+  
   const transactionsQuery = useMemoFirebase(() => 
     isReady ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(10)) : null, 
     [db, isReady]
   )
+  
   const salesQuery = useMemoFirebase(() => 
     isReady ? query(collection(db, 'stockTransactions'), where('transactionType', '==', 'STOCK_OUT_SALE')) : null, 
     [db, isReady]

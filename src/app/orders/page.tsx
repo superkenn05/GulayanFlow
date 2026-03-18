@@ -24,7 +24,7 @@ export default function OrdersPage() {
     setMounted(true)
   }, [])
 
-  // Explicit guard: Only run queries when auth is definitely ready and we are client-side
+  // Guard: Only run queries when auth is definitely ready and we are client-side
   const isReady = mounted && !isUserLoading && !!user && !user.isAnonymous
 
   const salesQuery = useMemoFirebase(() => 
@@ -36,6 +36,7 @@ export default function OrdersPage() {
     ) : null, 
     [db, isReady]
   )
+  
   const productsQuery = useMemoFirebase(() => isReady ? query(collection(db, 'products')) : null, [db, isReady])
 
   const { data: sales, isLoading: salesLoading } = useCollection(salesQuery)
