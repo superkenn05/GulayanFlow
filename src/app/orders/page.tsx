@@ -6,13 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ShoppingBasket, Eye, Loader2, MapPin, CreditCard, Calendar, User, Search, ChevronRight, BellRing } from "lucide-react"
+import { ShoppingBasket, Eye, Loader2, MapPin, CreditCard, Calendar, User, Search, ChevronRight } from "lucide-react"
 import { 
   Dialog, 
   DialogContent, 
   DialogHeader, 
-  DialogTitle, 
-  DialogDescription 
+  DialogTitle 
 } from "@/components/ui/dialog"
 import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from '@/firebase'
 import { collection, query, orderBy, doc, collectionGroup } from 'firebase/firestore'
@@ -44,7 +43,6 @@ export default function OrdersPage() {
   const { data: profiles, isLoading: profilesLoading } = useCollection<UserProfile>(profilesQuery)
 
   // 2. Fetch ALL orders across all customers to show indicators
-  // Note: We fetch all and filter client-side to handle missing index errors more gracefully
   const allOrdersGroupQuery = useMemoFirebase(() => 
     isAuthenticated ? query(collectionGroup(db, 'orders')) : null,
     [db, isAuthenticated]
@@ -101,10 +99,6 @@ export default function OrdersPage() {
           </h1>
           <p className="text-muted-foreground">Real-time order monitoring for customer profiles.</p>
         </div>
-        <div className="bg-primary/10 px-4 py-2 rounded-full flex items-center gap-2 text-primary animate-pulse">
-          <BellRing className="h-4 w-4" />
-          <span className="text-xs font-bold uppercase tracking-wider">Live Updates Active</span>
-        </div>
       </div>
 
       {groupError && (
@@ -137,7 +131,6 @@ export default function OrdersPage() {
                 {profilesLoading ? (
                   <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto opacity-20" /></div>
                 ) : filteredProfiles?.map((p) => {
-                  // Logic to check if this user has any pending orders (Client-side filtering)
                   const hasPendingOrder = allOrders?.some(order => 
                     (order.userId === p.id || order.id?.includes(p.id)) && order.status === 'pending'
                   );
@@ -177,7 +170,7 @@ export default function OrdersPage() {
           </CardContent>
         </Card>
 
-        {/* Right Column: Profile Details & Orders */}
+        {/* Right Column: Orders */}
         <div className="lg:col-span-8 space-y-6">
           {!activeProfileId ? (
             <Card className="flex flex-col items-center justify-center py-20 text-center border-dashed">
