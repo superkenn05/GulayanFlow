@@ -29,26 +29,26 @@ export default function DashboardPage() {
   }, [])
 
   // Explicit check: Wait for user to be ready before defining queries
-  const isAuthenticated = !!user && !user.isAnonymous
+  const isReady = mounted && !isUserLoading && !!user && !user.isAnonymous
 
-  const staffRef = useMemoFirebase(() => isAuthenticated ? doc(db, 'staffUsers', user.uid) : null, [db, user, isAuthenticated])
-  const { data: profile, isLoading: profileLoading } = useDoc(staffRef)
+  const staffRef = useMemoFirebase(() => isReady ? doc(db, 'staffUsers', user.uid) : null, [db, user, isReady])
+  const { data: profile } = useDoc(staffRef)
 
-  const productsQuery = useMemoFirebase(() => isAuthenticated ? query(collection(db, 'products')) : null, [db, isAuthenticated])
+  const productsQuery = useMemoFirebase(() => isReady ? query(collection(db, 'products')) : null, [db, isReady])
   const transactionsQuery = useMemoFirebase(() => 
-    isAuthenticated ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(10)) : null, 
-    [db, isAuthenticated]
+    isReady ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(10)) : null, 
+    [db, isReady]
   )
   const salesQuery = useMemoFirebase(() => 
-    isAuthenticated ? query(collection(db, 'stockTransactions'), where('transactionType', '==', 'STOCK_OUT_SALE')) : null, 
-    [db, isAuthenticated]
+    isReady ? query(collection(db, 'stockTransactions'), where('transactionType', '==', 'STOCK_OUT_SALE')) : null, 
+    [db, isReady]
   )
 
   const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
   const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery)
   const { data: sales } = useCollection(salesQuery)
 
-  if (!mounted || isUserLoading || !isAuthenticated) {
+  if (!mounted || isUserLoading || !user || user.isAnonymous) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />

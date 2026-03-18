@@ -25,23 +25,23 @@ export default function OrdersPage() {
   }, [])
 
   // Explicit check: Wait for user to be ready before defining queries
-  const isAuthenticated = !!user && !user.isAnonymous
+  const isReady = mounted && !isUserLoading && !!user && !user.isAnonymous
 
   const salesQuery = useMemoFirebase(() => 
-    isAuthenticated ? query(
+    isReady ? query(
       collection(db, 'stockTransactions'), 
       where('transactionType', '==', 'STOCK_OUT_SALE'),
       orderBy('transactionDate', 'desc'),
       limit(50)
     ) : null, 
-    [db, user, isAuthenticated]
+    [db, isReady]
   )
-  const productsQuery = useMemoFirebase(() => isAuthenticated ? query(collection(db, 'products')) : null, [db, isAuthenticated])
+  const productsQuery = useMemoFirebase(() => isReady ? query(collection(db, 'products')) : null, [db, isReady])
 
   const { data: sales, isLoading: salesLoading } = useCollection(salesQuery)
   const { data: products } = useCollection(productsQuery)
 
-  if (!mounted || isUserLoading || !isAuthenticated) {
+  if (!mounted || isUserLoading || !user || user.isAnonymous) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
