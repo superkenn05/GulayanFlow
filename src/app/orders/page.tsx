@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ShoppingBasket, Eye, MoreVertical, Loader2, MapPin, CreditCard } from "lucide-react"
+import { ShoppingBasket, Eye, MoreVertical, Loader2, MapPin, CreditCard, User, Mail, Phone, Calendar } from "lucide-react"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -20,9 +20,10 @@ import {
   DialogTitle, 
   DialogDescription 
 } from "@/components/ui/dialog"
-import { useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase'
-import { collection, query, orderBy, limit } from 'firebase/firestore'
+import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from '@/firebase'
+import { collection, query, orderBy, limit, doc } from 'firebase/firestore'
 import { Order } from '../types'
+import { Separator } from '@/components/ui/separator'
 
 export default function OrdersPage() {
   const [mounted, setMounted] = useState(false)
@@ -36,6 +37,14 @@ export default function OrdersPage() {
 
   const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous
 
+  // Fetch the User Profile to get the Name and contact info
+  const profileRef = useMemoFirebase(() => 
+    isAuthenticated ? doc(db, 'userProfiles', user.uid) : null, 
+    [db, isAuthenticated, user?.uid]
+  )
+  const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef)
+
+  // Fetch the Orders subcollection
   const ordersQuery = useMemoFirebase(() => 
     isAuthenticated ? query(
       collection(db, 'userProfiles', user.uid, 'orders'),
@@ -76,20 +85,53 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
+    <div className="space-y-6 animate-in slide-in-from-right-4 duration-500 pb-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary flex items-center gap-2">
             Order History <ShoppingBasket className="h-6 w-6" />
           </h1>
-          <p className="text-muted-foreground">Retrieving detailed records from user profile subcollections.</p>
+          <p className="text-muted-foreground">Comprehensive overview of all transactions in your profile.</p>
         </div>
       </div>
+
+      {/* User Information Card */}
+      <Card className="bg-primary/5 border-primary/10 overflow-hidden">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <User className="h-5 w-5 text-primary" /> Profile Information
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Customer Name</p>
+              <p className="text-base font-bold">
+                {isProfileLoading ? "Loading..." : `${profile?.firstName || ''} ${profile?.lastName || user.displayName || 'Guest'}`}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Email Address</p>
+              <div className="flex items-center gap-2 text-sm">
+                <Mail className="h-3 w-3 text-muted-foreground" />
+                {profile?.email || user.email}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Phone Number</p>
+              <div className="flex items-center gap-2 text-sm">
+                <Phone className="h-3 w-3 text-muted-foreground" />
+                {profile?.phoneNumber || "Not provided"}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
           <CardTitle>My Profile Orders</CardTitle>
-          <CardDescription>All historical orders retrieved from your specific user profile.</CardDescription>
+          <CardDescription>All historical orders retrieved from your specific user profile subcollection.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -98,6 +140,7 @@ export default function OrdersPage() {
                 <TableHead>Order ID</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Total</TableHead>
+                <TableHead>Address</TableHead>
                 <TableHead>Payment</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -107,13 +150,16 @@ export default function OrdersPage() {
               {orders?.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-mono text-xs font-bold text-primary">
-                    {order.id || "N/A"}
+                    {order.id?.substring(0, 8) || "N/A"}
                   </TableCell>
-                  <TableCell className="text-xs">
+                  <TableCell className="text-xs whitespace-nowrap">
                     {formatTimestamp(order.createdAt)}
                   </TableCell>
                   <TableCell className="font-bold">
                     ₱{(order.total || 0).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="max-w-[150px] truncate text-xs text-muted-foreground">
+                    {order.address}
                   </TableCell>
                   <TableCell className="text-xs">
                     <div className="flex items-center gap-1">
@@ -138,7 +184,7 @@ export default function OrdersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem className="gap-2" onClick={() => setSelectedOrder(order)}>
-                          <Eye className="h-4 w-4" /> Full Details
+                          <Eye className="h-4 w-4" /> View Full Details
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -147,7 +193,7 @@ export default function OrdersPage() {
               ))}
               {ordersLoading && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10 opacity-50">
+                  <TableCell colSpan={7} className="text-center py-10 opacity-50">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
                     Loading your orders...
                   </TableCell>
@@ -155,7 +201,7 @@ export default function OrdersPage() {
               )}
               {!ordersLoading && orders?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10 text-muted-foreground italic">
+                  <TableCell colSpan={7} className="text-center py-10 text-muted-foreground italic">
                     No orders found in your profile.
                   </TableCell>
                 </TableRow>
@@ -166,44 +212,65 @@ export default function OrdersPage() {
       </Card>
 
       <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              Order #{selectedOrder?.id}
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              Order Details
             </DialogTitle>
-            <DialogDescription>
-              Placed on {formatTimestamp(selectedOrder?.createdAt)}
+            <DialogDescription className="font-mono text-xs">
+              ID: {selectedOrder?.id}
             </DialogDescription>
           </DialogHeader>
           
           {selectedOrder && (
             <div className="space-y-6 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-3 w-3" /> Ordered On
+                  </p>
+                  <p className="text-sm font-medium">{formatTimestamp(selectedOrder.createdAt)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                    <CreditCard className="h-3 w-3" /> Payment Method
+                  </p>
+                  <p className="text-sm font-medium">{selectedOrder.paymentMethod}</p>
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <h4 className="text-sm font-bold flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-primary" /> Delivery Address
+                <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                  <MapPin className="h-3 w-3 text-primary" /> Delivery Address
                 </h4>
-                <p className="text-sm text-muted-foreground bg-muted p-3 rounded-lg border">
+                <p className="text-sm bg-muted/30 p-4 rounded-xl border border-border/50 leading-relaxed italic">
                   {selectedOrder.address || "No address provided."}
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <h4 className="text-sm font-bold">Items Ordered</h4>
-                <div className="border rounded-lg overflow-hidden">
+              <Separator />
+
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Order Items</h4>
+                <div className="border rounded-2xl overflow-hidden bg-card">
                   <Table>
-                    <TableHeader className="bg-muted/50">
+                    <TableHeader className="bg-muted/30">
                       <TableRow>
-                        <TableHead className="text-[10px]">Item</TableHead>
-                        <TableHead className="text-[10px] text-center">Qty</TableHead>
-                        <TableHead className="text-[10px] text-right">Price</TableHead>
+                        <TableHead className="text-[10px] h-10">Product Name</TableHead>
+                        <TableHead className="text-[10px] h-10 text-center">Qty</TableHead>
+                        <TableHead className="text-[10px] h-10 text-right">Price</TableHead>
+                        <TableHead className="text-[10px] h-10 text-right">Subtotal</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {selectedOrder.items?.map((item, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell className="text-xs font-medium">{item.name}</TableCell>
-                          <TableCell className="text-xs text-center">{item.quantity}</TableCell>
-                          <TableCell className="text-xs text-right">₱{(item.pricePerUnit || 0).toLocaleString()}</TableCell>
+                        <TableRow key={idx} className="hover:bg-transparent">
+                          <TableCell className="text-xs font-medium py-3">{item.name}</TableCell>
+                          <TableCell className="text-xs text-center py-3">{item.quantity}</TableCell>
+                          <TableCell className="text-xs text-right py-3">₱{(item.pricePerUnit || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-xs text-right font-bold py-3 text-primary">
+                            ₱{(item.quantity * (item.pricePerUnit || 0)).toLocaleString()}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -211,14 +278,16 @@ export default function OrdersPage() {
                 </div>
               </div>
 
-              <div className="flex justify-between items-center pt-4 border-t">
+              <div className="flex justify-between items-center pt-6 mt-4 border-t-2 border-dashed border-muted">
                 <div>
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Payment Method</p>
-                  <p className="text-sm font-medium">{selectedOrder.paymentMethod}</p>
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Order Status</p>
+                  <Badge className="mt-1" variant={selectedOrder.status === 'completed' ? 'default' : 'outline'}>
+                    {selectedOrder.status?.toUpperCase()}
+                  </Badge>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] uppercase font-bold text-muted-foreground">Grand Total</p>
-                  <p className="text-2xl font-bold text-primary">₱{(selectedOrder.total || 0).toLocaleString()}</p>
+                  <p className="text-3xl font-black text-primary">₱{(selectedOrder.total || 0).toLocaleString()}</p>
                 </div>
               </div>
             </div>
