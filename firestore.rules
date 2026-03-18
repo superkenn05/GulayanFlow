@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -6,24 +7,9 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Staff Users: Allow read/write for any signed-in staff
-    // Users can manage their own profiles, but for MVP we allow staff to see each other
-    match /staffUsers/{userId} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Categories: Allow read/write for any signed-in staff
-    match /categories/{doc=**} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Products: Allow read/write for any signed-in staff
-    match /products/{doc=**} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Stock Transactions: Allow read/write for any signed-in staff
-    match /stockTransactions/{doc=**} {
+    // Baseline rule for development and internal tools: Allow authenticated staff
+    // to read and write any document in any collection. This resolve 'list' permission issues.
+    match /{path=**} {
       allow read, write: if isSignedIn();
     }
   }
