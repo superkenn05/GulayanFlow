@@ -62,7 +62,7 @@ export default function DashboardPage() {
   }
 
   if (!user || user.isAnonymous) {
-    return null; // Layout handles redirect or login view
+    return null;
   }
 
   const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin'
