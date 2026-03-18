@@ -30,6 +30,12 @@
       "description": "Purple organic eggplant",
       "imageUrl": "https://picsum.photos/seed/eggplant/400/300",
       "imageHint": "purple eggplant"
+    },
+    {
+      "id": "store_banner",
+      "description": "Gemma's Gulayan Store Front",
+      "imageUrl": "https://picsum.photos/seed/gulayan/1200/400",
+      "imageHint": "vegetable market"
     }
   ]
 }

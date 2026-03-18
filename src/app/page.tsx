@@ -15,7 +15,8 @@ import {
   Loader2, 
   ShoppingBasket,
   Star,
-  ChevronRight
+  ChevronRight,
+  Plus
 } from "lucide-react"
 import {
   BarChart,
@@ -33,6 +34,7 @@ import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@
 import { collection, query, orderBy, limit, doc, where } from 'firebase/firestore'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
+import { PlaceHolderImages } from '@/app/lib/placeholder-images'
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
@@ -119,8 +121,11 @@ export default function DashboardPage() {
   const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--destructive))']
   const totalValue = products?.reduce((acc, p) => acc + ((p.currentStockQuantity || 0) * (p.pricePerUnit || 0)), 0) || 0
 
+  const bannerImage = PlaceHolderImages.find(img => img.id === 'store_banner')?.imageUrl
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+      {/* Header with Welcome */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Dashboard</h1>
@@ -133,6 +138,26 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {/* Hero Banner Section */}
+      <div className="relative w-full h-[220px] md:h-[320px] rounded-3xl overflow-hidden shadow-2xl group border-4 border-background">
+        <img 
+          src={bannerImage} 
+          alt="Gemma's Gulayan" 
+          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+          data-ai-hint="vegetable market"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-6 md:p-10">
+          <Badge className="w-fit mb-3 bg-accent text-accent-foreground font-black px-3 py-1 text-xs tracking-widest animate-pulse">
+            LOCAL & FRESH
+          </Badge>
+          <h2 className="text-white text-4xl md:text-6xl font-black font-headline mb-3 drop-shadow-lg">Gemma's Gulayan</h2>
+          <p className="text-white/90 text-sm md:text-lg font-medium max-w-2xl leading-relaxed drop-shadow-md">
+            Serving the community with the freshest harvest every day. Your trusted partner in sustainable and healthy produce management.
+          </p>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
