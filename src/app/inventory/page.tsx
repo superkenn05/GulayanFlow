@@ -25,7 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/select'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
@@ -368,7 +368,7 @@ export default function InventoryPage() {
                     </div>
                   </div>
 
-                  <Separator />
+                  <Separator className="my-2" />
 
                   {/* Nutritional Values Section */}
                   <div className="space-y-4">
@@ -399,7 +399,7 @@ export default function InventoryPage() {
                     </div>
                   </div>
 
-                  <Separator />
+                  <Separator className="my-2" />
 
                   {/* Stock Management */}
                   <div className="grid grid-cols-2 gap-6">
@@ -461,17 +461,17 @@ export default function InventoryPage() {
                     <div className="absolute top-2 right-2">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="secondary" size="icon" className="h-8 w-8 bg-background/80 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="secondary" size="icon" className="h-8 w-8 bg-background/80 backdrop-blur-md shadow-sm border border-border/50">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuLabel>Product Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleEditClick(product)}>
+                          <DropdownMenuItem onClick={() => handleEditClick(product)} className="cursor-pointer">
                             <Edit className="h-4 w-4 mr-2" /> Edit Details
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteProduct(product.id, product.name)}>
+                          <DropdownMenuItem className="text-destructive cursor-pointer" onClick={() => handleDeleteProduct(product.id, product.name)}>
                             <Trash2 className="h-4 w-4 mr-2" /> Delete Product
                           </DropdownMenuItem>
                         </DropdownMenuContent>
