@@ -21,215 +21,91 @@
       "description": "Details of an order placed by a user.",
       "properties": {
         "id": { "type": "string" },
-        "orderDate": { "type": "string", "format": "date-time" },
-        "totalAmount": { "type": "number" },
-        "status": { "type": "string", "enum": ["pending", "completed", "cancelled"] },
+        "address": { "type": "string" },
+        "createdAt": { "type": "object", "description": "Firestore Timestamp" },
+        "total": { "type": "number" },
+        "status": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "userId": { "type": "string" },
         "items": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
               "productId": { "type": "string" },
-              "productName": { "type": "string" },
+              "name": { "type": "string" },
               "quantity": { "type": "number" },
-              "price": { "type": "number" }
+              "pricePerUnit": { "type": "number" }
             }
           }
         }
       }
     },
     "Category": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Category",
       "type": "object",
-      "description": "Represents a classification for products, such as 'Vegetables' or 'Fruits', to help organize inventory.",
+      "description": "Represents a classification for products.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Category entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the category (e.g., 'Vegetables', 'Fruits', 'Nuts')."
-        },
-        "description": {
-          "type": "string",
-          "description": "A brief description of the category."
-        },
-        "iconUrl": {
-          "type": "string",
-          "description": "URL to an icon representing the category, typically from Material-UI or a custom image for visual representation.",
-          "format": "uri"
-        }
-      },
-      "required": [
-        "id",
-        "name"
-      ]
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "icon": { "type": "string" }
+      }
     },
     "Product": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Product",
       "type": "object",
-      "description": "Represents a single product item available in Gemma's Gulayan, including its details, pricing, and current stock level.",
+      "description": "Represents a single product item available in inventory.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Product entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the product (e.g., 'Organic Kale', 'Sweet Mango')."
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed description of the product, including origin or characteristics."
-        },
-        "categoryId": {
-          "type": "string",
-          "description": "Reference to Category. (Relationship: Category 1:N Product)"
-        },
-        "imageUrl": {
-          "type": "string",
-          "description": "URL to the product's image for display in the inventory system and storefront.",
-          "format": "uri"
-        },
-        "pricePerUnit": {
-          "type": "number",
-          "description": "The selling price of the product per its defined unit of measure."
-        },
-        "unitOfMeasure": {
-          "type": "string",
-          "description": "The standard unit by which the product is measured and sold (e.g., 'kg', 'piece', 'bundle')."
-        },
-        "currentStockQuantity": {
-          "type": "number",
-          "description": "The current available quantity of the product in stock."
-        },
-        "lowStockThreshold": {
-          "type": "number",
-          "description": "The quantity level below which the product is considered 'low stock', triggering alerts."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the product was first added to the inventory system.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the product's information was last updated.",
-          "format": "date-time"
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "imageUrl": { "type": "string", "format": "uri" },
+        "pricePerUnit": { "type": "number" },
+        "unitOfMeasure": { "type": "string" },
+        "currentStockQuantity": { "type": "number" },
+        "lowStockThreshold": { "type": "number" },
+        "nutritionalValues": {
+          "type": "object",
+          "properties": {
+            "calories": { "type": "string" },
+            "protein": { "type": "string" },
+            "carbs": { "type": "string" },
+            "fat": { "type": "string" }
+          }
         }
-      },
-      "required": [
-        "id",
-        "name",
-        "categoryId",
-        "pricePerUnit",
-        "unitOfMeasure",
-        "currentStockQuantity",
-        "lowStockThreshold",
-        "createdAt"
-      ]
+      }
     },
     "StaffUser": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "StaffUser",
       "type": "object",
-      "description": "Represents a staff member of Gemma's Gulayan with access to the inventory management system, including their role and contact details.",
+      "description": "Internal staff member profiles.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the StaffUser entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The full name of the staff member."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the staff member, used for identification. (Authentication handled externally).",
-          "format": "email"
-        },
-        "role": {
-          "type": "string",
-          "description": "The assigned role of the staff member (e.g., 'Admin', 'Staff'), defining their access privileges within the system."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the staff user profile was created in the system.",
-          "format": "date-time"
-        },
-        "lastLogin": {
-          "type": "string",
-          "description": "Timestamp of the staff user's last successful login to the system.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "email",
-        "role",
-        "createdAt"
-      ]
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string" },
+        "status": { "type": "string" }
+      }
     },
     "StockTransaction": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "StockTransaction",
       "type": "object",
-      "description": "Records every instance of product stock movement, including additions (stock-in), sales (stock-out), waste, or transfers.",
+      "description": "Log of all stock movements.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the StockTransaction entity."
-        },
-        "productId": {
-          "type": "string",
-          "description": "Reference to Product. (Relationship: Product 1:N StockTransaction)"
-        },
-        "staffUserId": {
-          "type": "string",
-          "description": "Reference to StaffUser who performed or recorded this stock transaction. (Relationship: StaffUser 1:N StockTransaction)"
-        },
-        "transactionType": {
-          "type": "string",
-          "description": "The type of stock movement, e.g., 'STOCK_IN', 'STOCK_OUT_SALE', 'STOCK_OUT_WASTE', 'STOCK_OUT_TRANSFER'."
-        },
-        "quantityChange": {
-          "type": "number",
-          "description": "The quantity of product involved in the transaction. Positive for stock additions, negative for stock reductions."
-        },
-        "transactionDate": {
-          "type": "string",
-          "description": "The exact date and time when the stock transaction occurred.",
-          "format": "date-time"
-        },
-        "reason": {
-          "type": "string",
-          "description": "An optional descriptive reason or note for the transaction, particularly useful for waste or transfer entries."
-        },
-        "unitCostAtTransaction": {
-          "type": "number",
-          "description": "The cost per unit of the product at the time this transaction occurred, essential for inventory valuation and profit analysis."
-        }
-      },
-      "required": [
-        "id",
-        "productId",
-        "staffUserId",
-        "transactionType",
-        "quantityChange",
-        "transactionDate",
-        "unitCostAtTransaction"
-      ]
+        "id": { "type": "string" },
+        "productId": { "type": "string" },
+        "staffUserId": { "type": "string" },
+        "transactionType": { "type": "string" },
+        "quantityChange": { "type": "number" },
+        "transactionDate": { "type": "object" },
+        "reason": { "type": "string" }
+      }
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "/userProfiles/{userId}": {

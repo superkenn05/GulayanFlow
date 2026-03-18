@@ -3,6 +3,7 @@ export type Category = {
   id: string;
   name: string;
   icon: string;
+  description?: string;
 };
 
 export type NutritionalValues = {
@@ -16,73 +17,50 @@ export type Product = {
   id: string;
   name: string;
   categoryId: string;
-  price: number;
-  currentStock: number;
-  unit: string; // kg, piece, bunch
+  pricePerUnit: number;
+  currentStockQuantity: number;
+  unitOfMeasure: string; // kg, piece, bunch
   imageUrl: string;
   description: string;
-  status: 'in-stock' | 'low-stock' | 'out-of-stock';
-  rating?: number;
-  reviewsCount?: number;
+  lowStockThreshold?: number;
   nutritionalValues?: NutritionalValues;
 };
 
-export type TransactionType = 'in' | 'out' | 'waste';
+export type TransactionType = 'STOCK_IN' | 'STOCK_OUT_SALE' | 'STOCK_OUT_WASTE' | 'STOCK_OUT_TRANSFER';
 
 export type Transaction = {
   id: string;
   productId: string;
-  type: TransactionType;
-  quantity: number;
-  date: string;
+  transactionType: TransactionType;
+  quantityChange: number;
+  transactionDate: any;
   reason?: string;
-  staffName: string;
+  staffUserId: string;
 };
 
 export type Staff = {
   id: string;
   name: string;
-  role: 'admin' | 'staff';
+  role: 'Admin' | 'Staff' | 'Superadmin';
   email: string;
   status: 'active' | 'inactive';
-  lastLogin: string;
-};
-
-export type Supplier = {
-  id: string;
-  name: string;
-  contactPerson: string;
-  phone: string;
-  email: string;
-  category: string;
-  status: 'active' | 'inactive';
+  lastLogin: any;
 };
 
 export type OrderItem = {
   productId: string;
-  productName: string;
+  name: string;
   quantity: number;
-  price: number;
+  pricePerUnit: number;
 };
 
 export type Order = {
   id: string;
-  customerName: string;
+  address: string;
+  createdAt: any;
   items: OrderItem[];
   total: number;
   status: 'completed' | 'pending' | 'cancelled';
-  date: string;
-  paymentMethod: 'cash' | 'gcash' | 'card';
-};
-
-export type Payment = {
-  id: string;
-  orderId?: string;
-  supplierId?: string;
-  type: 'income' | 'expense';
-  amount: number;
-  method: string;
-  date: string;
-  status: 'successful' | 'pending' | 'failed';
-  description: string;
+  paymentMethod: string;
+  userId: string;
 };
