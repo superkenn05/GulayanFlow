@@ -25,7 +25,7 @@ export default function OrdersPage() {
     setMounted(true)
   }, [])
 
-  // Explicit guard: Do not run query unless user is authenticated and mounted
+  // Explicit guard: Only run queries when auth is definitely ready and we are client-side
   const isReady = mounted && !isUserLoading && !!user && !user.isAnonymous
 
   const salesQuery = useMemoFirebase(() => 
