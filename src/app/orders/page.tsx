@@ -15,7 +15,7 @@ import {
   DialogDescription 
 } from "@/components/ui/dialog"
 import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from '@/firebase'
-import { collection, query, orderBy, doc } from 'firebase/firestore'
+import { collection, query, orderBy, doc, collectionGroup, where } from 'firebase/firestore'
 import { Order, UserProfile } from '../types'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
@@ -37,21 +37,27 @@ export default function OrdersPage() {
   const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous
 
   // 1. Fetch all User Profiles (Customers)
-  // useCollection uses onSnapshot internally for real-time updates
   const profilesQuery = useMemoFirebase(() => 
     isAuthenticated ? query(collection(db, 'userProfiles')) : null,
     [db, isAuthenticated]
   )
   const { data: profiles, isLoading: profilesLoading } = useCollection<UserProfile>(profilesQuery)
 
-  // 2. Fetch the specific UserProfile document when selected
+  // 2. NEW: Fetch ALL pending orders across all customers to show red dot indicators
+  const allPendingOrdersQuery = useMemoFirebase(() => 
+    isAuthenticated ? query(collectionGroup(db, 'orders'), where('status', '==', 'pending')) : null,
+    [db, isAuthenticated]
+  )
+  const { data: allPendingOrders } = useCollection<Order>(allPendingOrdersQuery)
+
+  // 3. Fetch the specific UserProfile document when selected
   const activeProfileRef = useMemoFirebase(() => 
     (isAuthenticated && activeProfileId) ? doc(db, 'userProfiles', activeProfileId) : null,
     [db, isAuthenticated, activeProfileId]
   )
   const { data: activeProfile, isLoading: activeProfileLoading } = useDoc<UserProfile>(activeProfileRef)
 
-  // 3. Fetch the Orders subcollection for the selected profile in real-time
+  // 4. Fetch the Orders subcollection for the selected profile in real-time
   const ordersQuery = useMemoFirebase(() => 
     (isAuthenticated && activeProfileId) ? query(
       collection(db, 'userProfiles', activeProfileId, 'orders'),
@@ -121,24 +127,36 @@ export default function OrdersPage() {
               <div className="divide-y">
                 {profilesLoading ? (
                   <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto opacity-20" /></div>
-                ) : filteredProfiles?.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setActiveProfileId(p.id)}
-                    className={`w-full text-left p-4 hover:bg-muted/50 transition-colors flex items-center justify-between group ${activeProfileId === p.id ? 'bg-primary/5 border-r-4 border-primary' : ''}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                        {p.firstName?.[0]}{p.lastName?.[0]}
+                ) : filteredProfiles?.map((p) => {
+                  const hasPendingOrder = allPendingOrders?.some(order => order.userId === p.id);
+
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setActiveProfileId(p.id)}
+                      className={`relative w-full text-left p-4 hover:bg-muted/50 transition-colors flex items-center justify-between group ${activeProfileId === p.id ? 'bg-primary/5 border-r-4 border-primary' : ''}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                            {p.firstName?.[0]}{p.lastName?.[0]}
+                          </div>
+                          {hasPendingOrder && (
+                            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
+                            </span>
+                          )}
+                        </div>
+                        <div className="overflow-hidden">
+                          <p className="font-bold truncate">{p.firstName} {p.lastName}</p>
+                          <p className="text-xs text-muted-foreground truncate">{p.email}</p>
+                        </div>
                       </div>
-                      <div className="overflow-hidden">
-                        <p className="font-bold truncate">{p.firstName} {p.lastName}</p>
-                        <p className="text-xs text-muted-foreground truncate">{p.email}</p>
-                      </div>
-                    </div>
-                    <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${activeProfileId === p.id ? 'translate-x-1' : 'opacity-0 group-hover:opacity-100'}`} />
-                  </button>
-                ))}
+                      <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${activeProfileId === p.id ? 'translate-x-1' : 'opacity-0 group-hover:opacity-100'}`} />
+                    </button>
+                  )
+                })}
                 {!profilesLoading && filteredProfiles?.length === 0 && (
                   <div className="p-8 text-center text-sm text-muted-foreground">No customers found.</div>
                 )}
