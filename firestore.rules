@@ -2,49 +2,41 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Functions ---
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isSuperadmin() {
-      return isSignedIn() && request.auth.token.email == 'markken@gulayan.ph';
-    }
-
-    // --- Global Superadmin Override ---
-    // This is placed at the top and covers every path in the database.
-    // This ensures that the Superadmin (markken@gulayan.ph) always has full access.
+    // --- Superadmin Override ---
+    // The master account always has full access to everything.
+    // This is checked first for maximum reliability.
     match /{document=**} {
-      allow read, write: if isSuperadmin();
+      allow read, write: if request.auth != null && request.auth.token.email == 'markken@gulayan.ph';
     }
 
-    // --- Collection Specific Rules ---
-
-    match /staffUsers/{staffId} {
-      // Any signed in staff can list the directory (needed for audit views and history displays)
-      allow list: if isSignedIn();
-      // Users can manage their own profile
-      allow get, write: if isSignedIn() && request.auth.uid == staffId;
+    // --- Staff Users ---
+    match /staffUsers/{userId} {
+      // Users can see and manage their own profiles.
+      allow get, write: if request.auth != null && request.auth.uid == userId;
+      // Admins and staff need to list the directory for names and roles in the UI.
+      allow list: if request.auth != null;
     }
 
+    // --- Product Categories ---
     match /categories/{categoryId} {
-      // Operational data accessible to all authorized staff for day-to-day work
-      allow read, write: if isSignedIn();
+      // Shared operational data accessible to all authorized staff.
+      allow read, write: if request.auth != null;
     }
 
+    // --- Products ---
     match /products/{productId} {
-      // Operational data accessible to all authorized staff
-      allow read, write: if isSignedIn();
+      // Shared operational data accessible to all authorized staff.
+      allow read, write: if request.auth != null;
     }
 
+    // --- Stock Transactions ---
     match /stockTransactions/{transactionId} {
-      // Essential for Dashboard activity feeds and Order History views
-      // 'read' covers both 'get' (single document) and 'list' (collection queries)
-      allow read: if isSignedIn();
-      // Allow any staff member to log new movements
-      allow create, update: if isSignedIn();
-      // Deletions are a sensitive audit-trail operation and remain restricted to Superadmin via the global rule
+      // Essential for Activity Feeds and Orders list. 
+      // 'read' covers both 'get' and 'list'.
+      allow read: if request.auth != null;
+      // Any staff can record stock movement.
+      allow create, update: if request.auth != null;
+      // Deletion is restricted to Superadmin (handled by the global match above).
     }
   }
 }
