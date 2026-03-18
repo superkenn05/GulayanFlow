@@ -1,29 +1,29 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
     // Helper function to check if the user is authenticated
     function isSignedIn() {
       return request.auth != null;
     }
 
     // Staff Users: Allow read/write for any signed-in staff
+    // Users can manage their own profiles, but for MVP we allow staff to see each other
     match /staffUsers/{userId} {
       allow read, write: if isSignedIn();
     }
 
     // Categories: Allow read/write for any signed-in staff
-    match /categories/{id} {
+    match /categories/{doc=**} {
       allow read, write: if isSignedIn();
     }
 
     // Products: Allow read/write for any signed-in staff
-    match /products/{id} {
+    match /products/{doc=**} {
       allow read, write: if isSignedIn();
     }
 
     // Stock Transactions: Allow read/write for any signed-in staff
-    match /stockTransactions/{id} {
+    match /stockTransactions/{doc=**} {
       allow read, write: if isSignedIn();
     }
   }
