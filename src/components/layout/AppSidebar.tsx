@@ -33,7 +33,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar"
 import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
-import { doc, collectionGroup, query, onSnapshot } from "firebase/firestore"
+import { doc, collectionGroup, query, onSnapshot, where } from "firebase/firestore"
 import { Badge } from "@/components/ui/badge"
 
 const items = [
@@ -58,20 +58,24 @@ export function AppSidebar() {
   const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
   const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
 
-  // Listen for ANY pending orders store-wide
-  // We use a broader query and filter client-side to be more resilient to missing index errors
+  // Real-time listener for ALL pending orders across all customer profiles
+  // Note: Using 'where' on a collectionGroup requires a composite index
   React.useEffect(() => {
     if (!db || !user || user.isAnonymous) return
     
-    // Attempt collection group query. 
-    // If the index link in the error hasn't been clicked, this will fail gracefully.
-    const q = query(collectionGroup(db, 'orders'))
+    // Explicitly target 'pending' orders for notification badge
+    const q = query(
+      collectionGroup(db, 'orders'),
+      where('status', '==', 'pending')
+    )
     
     const unsub = onSnapshot(q, (snapshot) => {
-      const pending = snapshot.docs.filter(d => d.data().status === 'pending')
-      setPendingCount(pending.length)
-    }, (error) => {
-      console.warn("Collection Group index likely missing for 'orders'. Click the link in your console to fix this.", error)
+      setPendingCount(snapshot.docs.length)
+    }, (error: any) => {
+      // Gracefully log if index is missing (Permission errors often mask missing index on collectionGroup)
+      if (error.code === 'failed-precondition' || error.code === 'permission-denied') {
+        console.warn("Sidebar: Orders indicator requires a collection group index. See console for link.")
+      }
     })
     
     return () => unsub()
