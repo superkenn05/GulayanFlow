@@ -2,41 +2,40 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Superadmin Override ---
+    // --- 1. Global Superadmin Override ---
     // The master account always has full access to everything.
-    // This is checked first for maximum reliability.
+    // This is checked first to ensure zero lockouts for the shop owner.
     match /{document=**} {
       allow read, write: if request.auth != null && request.auth.token.email == 'markken@gulayan.ph';
     }
 
-    // --- Staff Users ---
+    // --- 2. Staff Profiles ---
     match /staffUsers/{userId} {
       // Users can see and manage their own profiles.
       allow get, write: if request.auth != null && request.auth.uid == userId;
-      // Admins and staff need to list the directory for names and roles in the UI.
+      // Admins and staff need to list the directory to see names/roles in the UI.
       allow list: if request.auth != null;
     }
 
-    // --- Product Categories ---
-    match /categories/{categoryId} {
-      // Shared operational data accessible to all authorized staff.
+    // --- 3. Operational Data (Categories, Products, Transactions) ---
+    // These collections store shared data needed for the store to function.
+    // 'read' covers both 'get' (single doc) and 'list' (queries/collection views).
+    
+    match /categories/{id} {
       allow read, write: if request.auth != null;
     }
 
-    // --- Products ---
-    match /products/{productId} {
-      // Shared operational data accessible to all authorized staff.
+    match /products/{id} {
       allow read, write: if request.auth != null;
     }
 
-    // --- Stock Transactions ---
-    match /stockTransactions/{transactionId} {
-      // Essential for Activity Feeds and Orders list. 
-      // 'read' covers both 'get' and 'list'.
-      allow read: if request.auth != null;
-      // Any staff can record stock movement.
-      allow create, update: if request.auth != null;
-      // Deletion is restricted to Superadmin (handled by the global match above).
+    match /stockTransactions/{id} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Explicitly handle collection-level listing for transactions to prevent query denials
+    match /stockTransactions {
+      allow list: if request.auth != null;
     }
   }
 }
