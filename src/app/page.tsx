@@ -146,15 +146,6 @@ export default function DashboardPage() {
           className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
           data-ai-hint="vegetable market"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-6 md:p-10">
-          <Badge className="w-fit mb-3 bg-accent text-accent-foreground font-black px-3 py-1 text-xs tracking-widest animate-pulse">
-            LOCAL & FRESH
-          </Badge>
-          <h2 className="text-white text-4xl md:text-6xl font-black font-headline mb-3 drop-shadow-lg">Gemma's Gulayan</h2>
-          <p className="text-white/90 text-sm md:text-lg font-medium max-w-2xl leading-relaxed drop-shadow-md">
-            Serving the community with the freshest harvest every day. Your trusted partner in sustainable and healthy produce management.
-          </p>
-        </div>
       </div>
 
       {/* Stats Cards */}
