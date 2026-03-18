@@ -4,7 +4,6 @@
 import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { 
   Package, 
   AlertTriangle, 
@@ -13,10 +12,7 @@ import {
   TrendingUp, 
   ShoppingBag, 
   Loader2, 
-  ShoppingBasket,
-  Star,
-  ChevronRight,
-  Plus
+  ShoppingBasket
 } from "lucide-react"
 import {
   BarChart,
@@ -32,8 +28,6 @@ import {
 } from 'recharts'
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
 import { collection, query, orderBy, limit, doc, where } from 'firebase/firestore'
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
-import { cn } from '@/lib/utils'
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
@@ -52,11 +46,6 @@ export default function DashboardPage() {
 
   const productsQuery = useMemoFirebase(() => 
     isAuthenticated ? query(collection(db, 'products')) : null, 
-    [db, isAuthenticated]
-  )
-  
-  const popularProductsQuery = useMemoFirebase(() => 
-    isAuthenticated ? query(collection(db, 'products'), where('isPopular', '==', true), limit(10)) : null,
     [db, isAuthenticated]
   )
   
@@ -81,7 +70,6 @@ export default function DashboardPage() {
   )
 
   const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
-  const { data: popularProducts, isLoading: popularLoading } = useCollection(popularProductsQuery)
   const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery)
   const { data: sales } = useCollection(salesQuery)
 
@@ -189,59 +177,6 @@ export default function DashboardPage() {
               <div className="text-2xl font-bold">{outOfStockItems}</div>
               <p className="text-xs text-muted-foreground">Unavailable items</p>
             </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Popular Now Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-headline font-bold text-foreground">Popular Now</h2>
-            <p className="text-sm text-muted-foreground uppercase tracking-widest font-bold">Most loved by locals</p>
-          </div>
-          <Button variant="ghost" size="sm" className="text-primary font-bold group">
-            SEE ALL <ChevronRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </Button>
-        </div>
-
-        {popularLoading ? (
-          <div className="flex gap-4 overflow-hidden py-2">
-            {[1, 2, 3, 4].map(i => <div key={i} className="min-w-[200px] h-[250px] bg-muted animate-pulse rounded-2xl" />)}
-          </div>
-        ) : popularProducts && popularProducts.length > 0 ? (
-          <ScrollArea className="w-full whitespace-nowrap rounded-md">
-            <div className="flex w-max space-x-4 p-4">
-              {popularProducts.map((p) => (
-                <Card key={p.id} className="min-w-[220px] max-w-[220px] overflow-hidden border-none shadow-lg ring-1 ring-border group rounded-2xl transition-all hover:scale-[1.02]">
-                  <div className="relative h-32 w-full overflow-hidden">
-                    <img src={p.imageUrl || 'https://picsum.photos/seed/popular/400/300'} alt={p.name} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                    <div className="absolute top-2 left-2">
-                      <Badge className="bg-yellow-400 text-yellow-950 border-none font-black text-[9px] px-1.5 py-0.5 rounded-sm flex items-center gap-1">
-                        <Star className="h-2 w-2 fill-yellow-950" /> POPULAR
-                      </Badge>
-                    </div>
-                  </div>
-                  <CardContent className="p-4 space-y-1">
-                    <h3 className="font-bold text-sm truncate">{p.name}</h3>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">PER {p.unitOfMeasure}</p>
-                    <div className="flex justify-between items-center pt-2">
-                      <span className="text-lg font-black text-primary">₱{p.pricePerUnit}</span>
-                      <Button size="icon" className="h-7 w-7 rounded-full bg-primary hover:bg-primary/90">
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
-        ) : (
-          <Card className="border-dashed py-12 flex flex-col items-center justify-center bg-muted/20 text-center">
-            <Star className="h-12 w-12 text-muted-foreground opacity-10 mb-2" />
-            <h3 className="font-bold">No popular items found</h3>
-            <p className="text-xs text-muted-foreground">Mark items as popular in the inventory catalog to show them here.</p>
           </Card>
         )}
       </div>
