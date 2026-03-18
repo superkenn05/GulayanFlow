@@ -33,7 +33,8 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar"
 import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
-import { doc } from "firebase/firestore"
+import { doc, collectionGroup, query, where, onSnapshot } from "firebase/firestore"
+import { Badge } from "@/components/ui/badge"
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -52,9 +53,20 @@ export function AppSidebar() {
   const pathname = usePathname()
   const { user } = useUser()
   const db = useFirestore()
+  const [pendingCount, setPendingCount] = React.useState(0)
 
   const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
   const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
+
+  // Listen for ANY pending orders store-wide
+  React.useEffect(() => {
+    if (!db || !user || user.isAnonymous) return
+    const q = query(collectionGroup(db, 'orders'), where('status', '==', 'pending'))
+    const unsub = onSnapshot(q, (snapshot) => {
+      setPendingCount(snapshot.size)
+    })
+    return () => unsub()
+  }, [db, user])
 
   if (pathname === '/login' || (!user || user.isAnonymous)) {
     return null
@@ -87,12 +99,22 @@ export function AppSidebar() {
               {items.map((item) => {
                 if (item.adminOnly && !isAdmin) return null;
 
+                const isOrders = item.title === "Orders"
+
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={pathname === item.url} tooltip={item.title}>
-                      <Link href={item.url} className="flex items-center gap-3">
+                      <Link href={item.url} className="flex items-center gap-3 relative">
                         <item.icon className="h-5 w-5" />
                         <span>{item.title}</span>
+                        {isOrders && pendingCount > 0 && (
+                          <Badge 
+                            variant="destructive" 
+                            className="ml-auto h-5 min-w-5 p-0 flex items-center justify-center rounded-full animate-pulse text-[10px] font-bold"
+                          >
+                            {pendingCount}
+                          </Badge>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

@@ -128,7 +128,10 @@ export default function OrdersPage() {
                 {profilesLoading ? (
                   <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto opacity-20" /></div>
                 ) : filteredProfiles?.map((p) => {
-                  const hasPendingOrder = allPendingOrders?.some(order => order.userId === p.id);
+                  // Logic to check if this user has any pending orders
+                  const hasPendingOrder = allPendingOrders?.some(order => 
+                    order.userId === p.id || order.id?.includes(p.id)
+                  );
 
                   return (
                     <button
@@ -141,18 +144,17 @@ export default function OrdersPage() {
                           {p.firstName?.[0]}{p.lastName?.[0]}
                         </div>
                         <div className="overflow-hidden">
-                          <p className="font-bold truncate">{p.firstName} {p.lastName}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold truncate">{p.firstName} {p.lastName}</p>
+                            {hasPendingOrder && (
+                              <span className="flex h-2 w-2 rounded-full bg-destructive animate-pulse" title="Has Pending Orders" />
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground truncate">{p.email}</p>
                         </div>
                       </div>
                       
                       <div className="flex items-center gap-3">
-                        {hasPendingOrder && (
-                          <div className="relative flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
-                          </div>
-                        )}
                         <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${activeProfileId === p.id ? 'translate-x-1' : 'opacity-0 group-hover:opacity-100'}`} />
                       </div>
                     </button>
