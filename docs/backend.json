@@ -103,6 +103,16 @@
         "transactionDate": { "type": "object" },
         "reason": { "type": "string" }
       }
+    },
+    "StoreConfig": {
+      "title": "StoreConfig",
+      "type": "object",
+      "description": "Global settings for the store.",
+      "properties": {
+        "bannerUrl": { "type": "string", "format": "uri" },
+        "storeName": { "type": "string" },
+        "updatedAt": { "type": "object" }
+      }
     }
   },
   "auth": {
@@ -132,6 +142,10 @@
     "/stockTransactions/{transactionId}": {
       "schema": "StockTransaction",
       "description": "Log of all stock movements."
+    },
+    "/storeConfigs/{configId}": {
+      "schema": "StoreConfig",
+      "description": "Global store configuration settings."
     }
   }
 }

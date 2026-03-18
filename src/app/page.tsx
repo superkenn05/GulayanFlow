@@ -1,9 +1,9 @@
 
-"use client"
+'use client';
 
-import React, { useEffect, useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import React, { useEffect, useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { 
   Package, 
   AlertTriangle, 
@@ -12,8 +12,9 @@ import {
   TrendingUp, 
   ShoppingBag, 
   Loader2, 
-  ShoppingBasket
-} from "lucide-react"
+  ShoppingBasket,
+  ArrowRight
+} from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -25,31 +26,34 @@ import {
   Cell,
   PieChart,
   Pie
-} from 'recharts'
-import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
-import { collection, query, orderBy, limit, doc, where } from 'firebase/firestore'
+} from 'recharts';
+import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase';
+import { collection, query, orderBy, limit, doc, where } from 'firebase/firestore';
+import Image from 'next/image';
 
 export default function DashboardPage() {
-  const [mounted, setMounted] = useState(false)
-  const db = useFirestore()
-  const { user, isUserLoading } = useUser()
+  const [mounted, setMounted] = useState(false);
+  const db = useFirestore();
+  const { user, isUserLoading } = useUser();
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
   // Guard: Only run queries when auth is definitely ready and component is mounted
-  const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous
+  const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous;
 
-  const staffRef = useMemoFirebase(() => isAuthenticated ? doc(db, 'staffUsers', user.uid) : null, [db, user, isAuthenticated])
-  const { data: profile } = useDoc(staffRef)
+  const staffRef = useMemoFirebase(() => isAuthenticated ? doc(db, 'staffUsers', user.uid) : null, [db, user, isAuthenticated]);
+  const { data: profile } = useDoc(staffRef);
+
+  const configRef = useMemoFirebase(() => doc(db, 'storeConfigs', 'settings'), [db]);
+  const { data: config } = useDoc(configRef);
 
   const productsQuery = useMemoFirebase(() => 
     isAuthenticated ? query(collection(db, 'products')) : null, 
     [db, isAuthenticated]
-  )
+  );
   
-  // Recent activity filtered by the current user profile
   const transactionsQuery = useMemoFirebase(() => 
     isAuthenticated ? query(
       collection(db, 'stockTransactions'), 
@@ -58,7 +62,7 @@ export default function DashboardPage() {
       limit(10)
     ) : null, 
     [db, isAuthenticated, user?.uid]
-  )
+  );
   
   const salesQuery = useMemoFirebase(() => 
     isAuthenticated ? query(
@@ -67,54 +71,76 @@ export default function DashboardPage() {
       where('staffUserId', '==', user.uid)
     ) : null, 
     [db, isAuthenticated, user?.uid]
-  )
+  );
 
-  const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
-  const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery)
-  const { data: sales } = useCollection(salesQuery)
+  const { data: products, isLoading: productsLoading } = useCollection(productsQuery);
+  const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery);
+  const { data: sales } = useCollection(salesQuery);
 
   if (!mounted || isUserLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
       </div>
-    )
+    );
   }
 
   if (!user || user.isAnonymous) {
     return null;
   }
 
-  const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin'
-  const isAdmin = profile?.role === 'Admin' || isSuperadmin
+  const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin';
+  const isAdmin = profile?.role === 'Admin' || isSuperadmin;
 
-  const totalProducts = products?.length || 0
-  const lowStockItems = products?.filter(p => (p.currentStockQuantity || 0) <= (p.lowStockThreshold || 10) && (p.currentStockQuantity || 0) > 0).length || 0
-  const outOfStockItems = products?.filter(p => (p.currentStockQuantity || 0) <= 0).length || 0
-  const totalOrders = sales?.length || 0
+  const totalProducts = products?.length || 0;
+  const lowStockItems = products?.filter(p => (p.currentStockQuantity || 0) <= (p.lowStockThreshold || 10) && (p.currentStockQuantity || 0) > 0).length || 0;
+  const outOfStockItems = products?.filter(p => (p.currentStockQuantity || 0) <= 0).length || 0;
+  const totalOrders = sales?.length || 0;
 
   const chartData = products?.slice(0, 10).map(p => ({
     name: p.name,
     stock: p.currentStockQuantity || 0,
     fill: (p.currentStockQuantity || 0) <= (p.lowStockThreshold || 10) ? 'hsl(var(--destructive))' : 'hsl(var(--primary))'
-  })) || []
+  })) || [];
 
   const pieData = [
     { name: 'In Stock', value: Math.max(0, totalProducts - lowStockItems - outOfStockItems) },
     { name: 'Low Stock', value: lowStockItems },
     { name: 'Out of Stock', value: outOfStockItems },
-  ].filter(d => d.value > 0)
+  ].filter(d => d.value > 0);
 
-  const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--destructive))']
-  const totalValue = products?.reduce((acc, p) => acc + ((p.currentStockQuantity || 0) * (p.pricePerUnit || 0)), 0) || 0
+  const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--destructive))'];
+  const totalValue = products?.reduce((acc, p) => acc + ((p.currentStockQuantity || 0) * (p.pricePerUnit || 0)), 0) || 0;
+
+  // Use the banner from settings or a default
+  const bannerImage = config?.bannerUrl || 'https://picsum.photos/seed/gulayan/1200/400';
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+      {/* Hero Banner Section */}
+      <div className="relative h-64 md:h-80 w-full overflow-hidden rounded-3xl shadow-xl ring-1 ring-border">
+        <Image 
+          src={bannerImage} 
+          alt="Store Banner" 
+          fill 
+          className="object-cover" 
+          priority 
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex flex-col justify-end p-8 md:p-12">
+          <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight drop-shadow-md">
+            Gemma&apos;s Gulayan
+          </h2>
+          <p className="text-white/90 text-lg md:text-xl font-medium max-w-lg mt-2 drop-shadow-sm">
+            Fresh harvest management & real-time inventory control.
+          </p>
+        </div>
+      </div>
+
       {/* Header with Welcome */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-headline font-bold text-primary">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back{profile?.name ? `, ${profile.name}` : ''}! Here's your store overview.</p>
+          <h1 className="text-3xl font-headline font-bold text-primary">Overview</h1>
+          <p className="text-muted-foreground">Welcome back{profile?.name ? `, ${profile.name}` : ''}! Tracking your store&apos;s performance.</p>
         </div>
         {isAdmin && (
           <div className="flex gap-2">
@@ -202,7 +228,7 @@ export default function DashboardPage() {
                           <p className="font-bold">{payload[0].payload.name}</p>
                           <p className="text-primary">{payload[0].value} units</p>
                         </div>
-                      )
+                      );
                     }
                     return null;
                   }}
@@ -260,7 +286,7 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-4">
               {transactions?.map((t) => {
-                const product = products?.find(p => p.id === t.productId)
+                const product = products?.find(p => p.id === t.productId);
                 return (
                   <div key={t.id} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
                     <div className="flex items-center gap-3">
@@ -291,7 +317,7 @@ export default function DashboardPage() {
                       <p className="text-xs text-muted-foreground">Audit ID: {t.id.substring(0, 6)}</p>
                     </div>
                   </div>
-                )
+                );
               })}
               {!transactions?.length && (
                 <p className="text-center text-sm text-muted-foreground py-4">No recent activity recorded by you.</p>
@@ -301,5 +327,5 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

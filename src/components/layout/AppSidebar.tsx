@@ -15,7 +15,8 @@ import {
   CreditCard,
   ShieldCheck,
   Leaf,
-  Loader2
+  Loader2,
+  Settings
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -47,6 +48,7 @@ const items = [
   { title: "AI Insights", url: "/insights", icon: BrainCircuit },
   { title: "Reports", url: "/reports", icon: FileText },
   { title: "Admin Management", url: "/admin", icon: ShieldCheck, adminOnly: true },
+  { title: "Store Settings", url: "/settings", icon: Settings, adminOnly: true },
 ]
 
 export function AppSidebar() {
@@ -59,7 +61,6 @@ export function AppSidebar() {
   const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
 
   // Real-time listener for ALL pending orders across all customer profiles
-  // Note: Using 'where' on a collectionGroup requires a composite index
   React.useEffect(() => {
     if (!db || !user || user.isAnonymous) return
     
@@ -72,9 +73,9 @@ export function AppSidebar() {
     const unsub = onSnapshot(q, (snapshot) => {
       setPendingCount(snapshot.docs.length)
     }, (error: any) => {
-      // Gracefully log if index is missing (Permission errors often mask missing index on collectionGroup)
+      // Gracefully log if index is missing
       if (error.code === 'failed-precondition' || error.code === 'permission-denied') {
-        console.warn("Sidebar: Orders indicator requires a collection group index. See console for link.")
+        console.warn("Sidebar: Orders indicator requires a collection group index.")
       }
     })
     
