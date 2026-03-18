@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ShoppingBasket, Eye, MoreVertical, Loader2, MapPin, CreditCard, User, Mail, Phone, Calendar, Info } from "lucide-react"
+import { ShoppingBasket, Eye, MoreVertical, Loader2, MapPin, CreditCard, Calendar, Info } from "lucide-react"
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -20,9 +20,9 @@ import {
   DialogTitle, 
   DialogDescription 
 } from "@/components/ui/dialog"
-import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from '@/firebase'
-import { collection, query, orderBy, limit, doc } from 'firebase/firestore'
-import { Order, UserProfile } from '../types'
+import { useUser, useFirestore, useMemoFirebase, useCollection } from '@/firebase'
+import { collection, query, orderBy, limit } from 'firebase/firestore'
+import { Order } from '../types'
 import { Separator } from '@/components/ui/separator'
 
 export default function OrdersPage() {
@@ -36,13 +36,6 @@ export default function OrdersPage() {
   }, [])
 
   const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous
-
-  // Fetch the User Profile explicitly from the userProfiles collection
-  const profileRef = useMemoFirebase(() => 
-    isAuthenticated ? doc(db, 'userProfiles', user.uid) : null, 
-    [db, isAuthenticated, user?.uid]
-  )
-  const { data: profile, isLoading: isProfileLoading } = useDoc<UserProfile>(profileRef)
 
   // Fetch the Orders subcollection under the specific UserProfile
   const ordersQuery = useMemoFirebase(() => 
@@ -95,56 +88,10 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* Profile Detail Card */}
-      <Card className="bg-primary/5 border-primary/10 overflow-hidden">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <User className="h-5 w-5 text-primary" /> Customer Profile
-          </CardTitle>
-          <CardDescription>This information is retrieved from your UserProfile document.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-1">
-              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Full Name</p>
-              <p className="text-base font-bold">
-                {isProfileLoading ? "Loading..." : profile ? `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || user.displayName : user.displayName || 'Guest User'}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Contact Email</p>
-              <div className="flex items-center gap-2 text-sm">
-                <Mail className="h-3 w-3 text-muted-foreground" />
-                {profile?.email || user.email}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Phone Number</p>
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="h-3 w-3 text-muted-foreground" />
-                {profile?.phoneNumber || "Not provided"}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {!isProfileLoading && !profile && (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="pt-6 flex items-start gap-3">
-            <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="text-sm text-amber-800">
-              <p className="font-bold">No User Profile Document Found</p>
-              <p className="opacity-80">You are logged in as <b>{user.email}</b>, but a document doesn't exist in the <code>userProfiles</code> collection yet. Orders shown below are from your specific subcollection path.</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <Card>
         <CardHeader>
           <CardTitle>Order List</CardTitle>
-          <CardDescription>Showing recent orders from your profile subcollection.</CardDescription>
+          <CardDescription>Showing recent orders from your customer profile.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
