@@ -1,3 +1,40 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "carrot",
+      "description": "Fresh organic carrots",
+      "imageUrl": "https://picsum.photos/seed/carrot/400/300",
+      "imageHint": "fresh carrots"
+    },
+    {
+      "id": "apple",
+      "description": "Red crisp apples",
+      "imageUrl": "https://picsum.photos/seed/apple/400/300",
+      "imageHint": "red apple"
+    },
+    {
+      "id": "broccoli",
+      "description": "Green healthy broccoli",
+      "imageUrl": "https://picsum.photos/seed/broccoli/400/300",
+      "imageHint": "green broccoli"
+    },
+    {
+      "id": "banana",
+      "description": "Ripe yellow bananas",
+      "imageUrl": "https://picsum.photos/seed/banana/400/300",
+      "imageHint": "yellow banana"
+    },
+    {
+      "id": "eggplant",
+      "description": "Purple organic eggplant",
+      "imageUrl": "https://picsum.photos/seed/eggplant/400/300",
+      "imageHint": "purple eggplant"
+    },
+    {
+      "id": "store_banner",
+      "description": "Gemma's Gulayan Store Front",
+      "imageUrl": "https://picsum.photos/seed/gulayan/1200/400",
+      "imageHint": "vegetable market"
+    }
+  ]
 }

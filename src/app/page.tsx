@@ -34,7 +34,7 @@ import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@
 import { collection, query, orderBy, limit, doc, where } from 'firebase/firestore'
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
-import { PlaceHolderImages } from '@/app/lib/placeholder-images'
+import { PlaceHolderImages } from '@/lib/placeholder-images'
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
@@ -121,7 +121,7 @@ export default function DashboardPage() {
   const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', 'hsl(var(--destructive))']
   const totalValue = products?.reduce((acc, p) => acc + ((p.currentStockQuantity || 0) * (p.pricePerUnit || 0)), 0) || 0
 
-  const bannerImage = PlaceHolderImages.find(img => img.id === 'store_banner')?.imageUrl
+  const bannerImage = PlaceHolderImages?.find(img => img.id === 'store_banner')?.imageUrl || 'https://picsum.photos/seed/gulayan/1200/400'
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
