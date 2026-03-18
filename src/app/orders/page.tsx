@@ -18,14 +18,14 @@ import { collection, query, where, orderBy, limit } from 'firebase/firestore'
 export default function OrdersPage() {
   const [mounted, setMounted] = useState(false)
   const db = useFirestore()
-  const { user } = useUser()
+  const { user, isUserLoading } = useUser()
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   const salesQuery = useMemoFirebase(() => 
-    user ? query(
+    (user && !user.isAnonymous) ? query(
       collection(db, 'stockTransactions'), 
       where('transactionType', '==', 'STOCK_OUT_SALE'),
       orderBy('transactionDate', 'desc'),
@@ -33,10 +33,23 @@ export default function OrdersPage() {
     ) : null, 
     [db, user]
   )
-  const productsQuery = useMemoFirebase(() => user ? query(collection(db, 'products')) : null, [db, user])
+  const productsQuery = useMemoFirebase(() => (user && !user.isAnonymous) ? query(collection(db, 'products')) : null, [db, user])
 
   const { data: sales, isLoading: salesLoading } = useCollection(salesQuery)
   const { data: products } = useCollection(productsQuery)
+
+  if (!mounted || isUserLoading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+      </div>
+    )
+  }
+
+  // Final Auth Check
+  if (!user || user.isAnonymous) {
+    return null;
+  }
 
   return (
     <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">

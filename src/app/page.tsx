@@ -22,18 +22,22 @@ import { collection, query, orderBy, limit, doc, where } from 'firebase/firestor
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
   const db = useFirestore()
-  const { user } = useUser()
+  const { user, isUserLoading } = useUser()
 
-  const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user])
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const staffRef = useMemoFirebase(() => (user && !user.isAnonymous) ? doc(db, 'staffUsers', user.uid) : null, [db, user])
   const { data: profile, isLoading: profileLoading } = useDoc(staffRef)
 
-  const productsQuery = useMemoFirebase(() => user ? query(collection(db, 'products')) : null, [db, user])
+  const productsQuery = useMemoFirebase(() => (user && !user.isAnonymous) ? query(collection(db, 'products')) : null, [db, user])
   const transactionsQuery = useMemoFirebase(() => 
-    user ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(10)) : null, 
+    (user && !user.isAnonymous) ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(10)) : null, 
     [db, user]
   )
   const salesQuery = useMemoFirebase(() => 
-    user ? query(collection(db, 'stockTransactions'), where('transactionType', '==', 'STOCK_OUT_SALE')) : null, 
+    (user && !user.isAnonymous) ? query(collection(db, 'stockTransactions'), where('transactionType', '==', 'STOCK_OUT_SALE')) : null, 
     [db, user]
   )
 
@@ -41,16 +45,17 @@ export default function DashboardPage() {
   const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery)
   const { data: sales } = useCollection(salesQuery)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted || profileLoading || productsLoading) {
+  if (!mounted || isUserLoading || profileLoading || productsLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
       </div>
     )
+  }
+
+  // Final Auth Check
+  if (!user || user.isAnonymous) {
+    return null;
   }
 
   const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin'

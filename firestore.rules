@@ -2,41 +2,40 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- 1. Global Superadmin Override ---
-    // The master account always has full access to everything.
-    // This is checked first to ensure zero lockouts for the shop owner.
-    match /{document=**} {
-      allow read, write: if request.auth != null && request.auth.token.email == 'markken@gulayan.ph';
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // --- 2. Staff Profiles ---
+    function isSuperAdmin() {
+      return request.auth != null &&
+             request.auth.token.email == 'markken@gulayan.ph';
+    }
+
+    // Staff Users
     match /staffUsers/{userId} {
-      // Users can see and manage their own profiles.
-      allow get, write: if request.auth != null && request.auth.uid == userId;
-      // Admins and staff need to list the directory to see names/roles in the UI.
-      allow list: if request.auth != null;
+      allow get, write: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
+      allow list: if isSignedIn();
     }
 
-    // --- 3. Operational Data (Categories, Products, Transactions) ---
-    // These collections store shared data needed for the store to function.
-    // 'read' covers both 'get' (single doc) and 'list' (queries/collection views).
-    
+    // Categories
     match /categories/{id} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isSignedIn();
     }
 
+    // Products
     match /products/{id} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isSignedIn();
     }
 
+    // Stock Transactions
     match /stockTransactions/{id} {
-      allow read, write: if request.auth != null;
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
     }
     
-    // Explicitly handle collection-level listing for transactions to prevent query denials
-    // though 'read' on the document path usually handles this, we be explicit here.
+    // Explicitly handle collection-level listing for transactions
     match /stockTransactions {
-      allow list: if request.auth != null;
+      allow list: if isSignedIn();
     }
   }
 }
