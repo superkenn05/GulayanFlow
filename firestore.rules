@@ -13,7 +13,7 @@ service cloud.firestore {
 
     // Staff Users
     match /staffUsers/{userId} {
-      allow get, write: if isSignedIn() && (request.auth.uid == userId || isSuperAdmin());
+      allow get, write: if request.auth.uid == userId || isSuperAdmin();
       allow list: if isSignedIn();
     }
 
@@ -31,11 +31,6 @@ service cloud.firestore {
     match /stockTransactions/{id} {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn();
-    }
-    
-    // Explicitly handle collection-level listing for transactions
-    match /stockTransactions {
-      allow list: if isSignedIn();
     }
   }
 }

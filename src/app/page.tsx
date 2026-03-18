@@ -28,34 +28,32 @@ export default function DashboardPage() {
     setMounted(true)
   }, [])
 
-  const staffRef = useMemoFirebase(() => (user && !user.isAnonymous) ? doc(db, 'staffUsers', user.uid) : null, [db, user])
+  // Explicit check: Wait for user to be ready before defining queries
+  const isAuthenticated = !!user && !user.isAnonymous
+
+  const staffRef = useMemoFirebase(() => isAuthenticated ? doc(db, 'staffUsers', user.uid) : null, [db, user, isAuthenticated])
   const { data: profile, isLoading: profileLoading } = useDoc(staffRef)
 
-  const productsQuery = useMemoFirebase(() => (user && !user.isAnonymous) ? query(collection(db, 'products')) : null, [db, user])
+  const productsQuery = useMemoFirebase(() => isAuthenticated ? query(collection(db, 'products')) : null, [db, isAuthenticated])
   const transactionsQuery = useMemoFirebase(() => 
-    (user && !user.isAnonymous) ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(10)) : null, 
-    [db, user]
+    isAuthenticated ? query(collection(db, 'stockTransactions'), orderBy('transactionDate', 'desc'), limit(10)) : null, 
+    [db, isAuthenticated]
   )
   const salesQuery = useMemoFirebase(() => 
-    (user && !user.isAnonymous) ? query(collection(db, 'stockTransactions'), where('transactionType', '==', 'STOCK_OUT_SALE')) : null, 
-    [db, user]
+    isAuthenticated ? query(collection(db, 'stockTransactions'), where('transactionType', '==', 'STOCK_OUT_SALE')) : null, 
+    [db, isAuthenticated]
   )
 
   const { data: products, isLoading: productsLoading } = useCollection(productsQuery)
   const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery)
   const { data: sales } = useCollection(salesQuery)
 
-  if (!mounted || isUserLoading || profileLoading || productsLoading) {
+  if (!mounted || isUserLoading || !isAuthenticated) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
       </div>
     )
-  }
-
-  // Final Auth Check
-  if (!user || user.isAnonymous) {
-    return null;
   }
 
   const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin'
