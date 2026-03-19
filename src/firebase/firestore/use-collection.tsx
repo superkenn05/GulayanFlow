@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,8 +12,8 @@ import {
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
-/** Utility type to add an 'id' field to a given type T. */
-export type WithId<T> = T & { id: string };
+/** Utility type to add an 'id' field and optional path to a given type T. */
+export type WithId<T> = T & { id: string; _path?: string };
 
 /**
  * Interface for the return value of the useCollection hook.
@@ -67,21 +66,22 @@ export function useCollection<T = any>(
       (snapshot: QuerySnapshot<DocumentData>) => {
         const results: ResultItemType[] = [];
         for (const doc of snapshot.docs) {
-          results.push({ ...(doc.data() as T), id: doc.id });
+          results.push({ 
+            ...(doc.data() as T), 
+            id: doc.id,
+            _path: doc.ref.path 
+          });
         }
         setData(results);
         setError(null);
         setIsLoading(false);
       },
       (err: FirestoreError) => {
-        // Standard error reporting for non-permission issues (e.g., missing index)
         setError(err);
 
-        // Specific handling for permission/auth issues
         if (err.code === 'permission-denied' || err.code === 'unauthenticated') {
           let path: string = 'unknown';
           try {
-            // Attempt to derive path for the error message
             if ((memoizedTargetRefOrQuery as any).path) {
               path = (memoizedTargetRefOrQuery as any).path;
             } else if ((memoizedTargetRefOrQuery as any)._query?.path) {
@@ -99,7 +99,7 @@ export function useCollection<T = any>(
           errorEmitter.emit('permission-error', contextualError);
         }
         
-        setData([]); // Return empty array on error so UI doesn't hang
+        setData([]); 
         setIsLoading(false);
       }
     );

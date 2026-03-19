@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -48,11 +47,14 @@ export default function ReviewManagementPage() {
     return dateB.getTime() - dateA.getTime()
   })
 
-  const handleDelete = (productId: string, reviewId: string, userName: string) => {
-    if (!isAdmin || !productId || !reviewId) return
+  const handleDelete = (path: string | undefined, userName: string) => {
+    if (!isAdmin || !path) {
+      toast({ title: "Error", description: "Incomplete document reference. Could not delete.", variant: "destructive" })
+      return
+    }
 
     if (confirm(`Are you sure you want to delete the review from ${userName || 'this customer'}?`)) {
-      deleteDocumentNonBlocking(doc(db, 'products', productId, 'reviews', reviewId))
+      deleteDocumentNonBlocking(doc(db, path))
       toast({ 
         title: "Review Deleted", 
         description: "The feedback has been removed from the product catalog." 
@@ -157,7 +159,7 @@ export default function ReviewManagementPage() {
                       variant="ghost" 
                       size="icon" 
                       className="text-destructive hover:bg-destructive/10 rounded-full"
-                      onClick={() => handleDelete(review.productId, review.id, review.userName)}
+                      onClick={() => handleDelete(review._path, review.userName)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
