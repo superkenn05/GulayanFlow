@@ -31,6 +31,7 @@ export default function ReviewManagementPage() {
   
   const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || user?.email === 'markken@gulayan.ph'
 
+  // Uses Collection Group query to fetch all reviews from path: products/{productId}/reviews/{reviewId}
   const reviewsQuery = useMemoFirebase(() => 
     isAuthenticated ? query(collectionGroup(db, 'reviews'), orderBy('createdAt', 'desc')) : null,
     [db, isAuthenticated]
@@ -44,10 +45,11 @@ export default function ReviewManagementPage() {
   )
 
   const handleDelete = async (productId: string, reviewId: string) => {
-    if (!isAdmin) return
+    if (!isAdmin || !productId || !reviewId) return
     try {
+      // Explicitly delete from the specific nested path
       await deleteDoc(doc(db, 'products', productId, 'reviews', reviewId))
-      toast({ title: "Review Deleted", description: "Feedback has been removed." })
+      toast({ title: "Review Deleted", description: "Feedback has been removed from the catalog." })
     } catch (e) {
       toast({ title: "Error", description: "Could not delete review.", variant: "destructive" })
     }
@@ -90,21 +92,21 @@ export default function ReviewManagementPage() {
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Index Required</AlertTitle>
+          <AlertTitle>Database Index Required</AlertTitle>
           <AlertDescription>
-            The review dashboard requires a Firestore collection group index. 
-            If this is the first time you are viewing this page, please click the link in your browser console to create the index.
+            The aggregate review dashboard requires a Firestore collection group index. 
+            Please check your browser console for the direct link to create this index.
           </AlertDescription>
         </Alert>
       )}
 
-      <Card className="border-none shadow-md">
+      <Card className="border-none shadow-md overflow-hidden">
         <CardContent className="p-0">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>Product</TableHead>
-                <TableHead>User</TableHead>
+                <TableHead>Customer</TableHead>
                 <TableHead>Rating</TableHead>
                 <TableHead>Comment</TableHead>
                 <TableHead>Date</TableHead>
@@ -113,14 +115,14 @@ export default function ReviewManagementPage() {
             </TableHeader>
             <TableBody>
               {filteredReviews?.map((review) => (
-                <TableRow key={review.id} className="group">
+                <TableRow key={review.id} className="group hover:bg-muted/30 transition-colors">
                   <TableCell className="font-bold text-primary">
                     <Link href={`/products/${review.productId}`} className="flex items-center gap-2 hover:underline">
                       {review.productName || 'View Product'} <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100" />
                     </Link>
                   </TableCell>
                   <TableCell className="text-sm">
-                    <div className="font-medium">{review.userName}</div>
+                    <div className="font-medium">{review.userName || "Guest"}</div>
                     <div className="text-[10px] text-muted-foreground">{review.userEmail}</div>
                   </TableCell>
                   <TableCell>
@@ -131,16 +133,16 @@ export default function ReviewManagementPage() {
                     </div>
                   </TableCell>
                   <TableCell className="max-w-xs">
-                    <p className="text-xs truncate">{review.comment}</p>
+                    <p className="text-xs italic leading-tight">{review.comment}</p>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                     {review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : 'Just now'}
                   </TableCell>
                   <TableCell className="text-right">
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="text-destructive hover:bg-destructive/10"
+                      className="text-destructive hover:bg-destructive/10 rounded-full"
                       onClick={() => handleDelete(review.productId, review.id)}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -155,7 +157,7 @@ export default function ReviewManagementPage() {
               )}
               {!isLoading && filteredReviews?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic">No reviews found.</TableCell>
+                  <TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic">No customer reviews have been submitted yet.</TableCell>
                 </TableRow>
               )}
             </TableBody>

@@ -88,9 +88,11 @@
         "userName": { "type": "string" },
         "rating": { "type": "number", "minimum": 1, "maximum": 5 },
         "comment": { "type": "string" },
-        "createdAt": { "type": "object" }
+        "createdAt": { "type": "object" },
+        "productId": { "type": "string" },
+        "productName": { "type": "string" }
       },
-      "required": ["userId", "rating", "comment"]
+      "required": ["userId", "rating", "comment", "productId"]
     },
     "StaffUser": {
       "title": "StaffUser",
