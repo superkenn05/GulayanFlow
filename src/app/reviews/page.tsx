@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Star, Trash2, MessageSquare, Loader2, ExternalLink, Search, AlertCircle } from "lucide-react"
+import { Star, Trash2, MessageSquare, Loader2, ExternalLink, Search, AlertCircle, RefreshCw } from "lucide-react"
 import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from '@/firebase'
 import { collectionGroup, query, orderBy, doc, deleteDoc } from 'firebase/firestore'
 import { toast } from '@/hooks/use-toast'
@@ -29,12 +29,12 @@ export default function ReviewManagementPage() {
   const staffRef = useMemoFirebase(() => isAuthenticated ? doc(db, 'staffUsers', user.uid) : null, [db, user, isAuthenticated])
   const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
   
-  // Wait for profile to load before determining Admin status
   const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || user?.email === 'markken@gulayan.ph'
 
-  // Uses Collection Group query to fetch all reviews from path: products/{productId}/reviews/{reviewId}
+  // Simplified query: Removing orderBy temporarily to see if it fetches without a composite index
+  // Note: Collection Group queries often still require a simple index.
   const reviewsQuery = useMemoFirebase(() => 
-    isAuthenticated ? query(collectionGroup(db, 'reviews'), orderBy('createdAt', 'desc')) : null,
+    isAuthenticated ? query(collectionGroup(db, 'reviews')) : null,
     [db, isAuthenticated]
   )
   const { data: reviews, isLoading, error } = useCollection(reviewsQuery)
@@ -43,14 +43,21 @@ export default function ReviewManagementPage() {
     r.comment?.toLowerCase().includes(searchTerm.toLowerCase()) || 
     r.productName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.userName?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  ).sort((a, b) => {
+    // Manual sort since we removed it from the query for better compatibility
+    const dateA = a.createdAt?.toDate?.() || new Date(0)
+    const dateB = b.createdAt?.toDate?.() || new Date(0)
+    return dateB.getTime() - dateA.getTime()
+  })
 
   const handleDelete = async (productId: string, reviewId: string) => {
-    if (!isAdmin || !productId || !reviewId) return
+    if (!isAdmin || !productId || !reviewId) {
+      toast({ title: "Cannot Delete", description: "Missing required IDs for deletion.", variant: "destructive" })
+      return
+    }
     try {
-      // Explicitly delete from the specific nested path
       await deleteDoc(doc(db, 'products', productId, 'reviews', reviewId))
-      toast({ title: "Review Deleted", description: "Feedback has been removed from the catalog." })
+      toast({ title: "Review Deleted", description: "Feedback has been removed." })
     } catch (e) {
       toast({ title: "Error", description: "Could not delete review.", variant: "destructive" })
     }
@@ -84,6 +91,9 @@ export default function ReviewManagementPage() {
           </h1>
           <p className="text-muted-foreground">Monitor and manage customer feedback across all products.</p>
         </div>
+        <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="gap-2">
+          <RefreshCw className="h-4 w-4" /> Refresh
+        </Button>
       </div>
 
       <div className="relative">
@@ -97,12 +107,12 @@ export default function ReviewManagementPage() {
       </div>
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="bg-destructive/5 border-destructive/20">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Database Index Required</AlertTitle>
+          <AlertTitle>Database Sync Notice</AlertTitle>
           <AlertDescription>
-            The aggregate review dashboard requires a Firestore collection group index. 
-            Please check your browser console for the direct link to create this index.
+            The aggregate review dashboard requires a <strong>Firestore Collection Group Index</strong> for the "reviews" collection. 
+            Please check your browser's developer console (F12) for a direct link to create this index in the Firebase Console.
           </AlertDescription>
         </Alert>
       )}
@@ -140,7 +150,7 @@ export default function ReviewManagementPage() {
                     </div>
                   </TableCell>
                   <TableCell className="max-w-xs">
-                    <p className="text-xs italic leading-tight">{review.comment}</p>
+                    <p className="text-xs italic leading-tight line-clamp-2">{review.comment}</p>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                     {review.createdAt?.toDate ? review.createdAt.toDate().toLocaleDateString() : 'Just now'}
@@ -164,7 +174,7 @@ export default function ReviewManagementPage() {
               )}
               {!isLoading && filteredReviews?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic">No customer reviews have been submitted yet.</TableCell>
+                  <TableCell colSpan={6} className="text-center py-20 text-muted-foreground italic">No customer reviews found matching your criteria.</TableCell>
                 </TableRow>
               )}
             </TableBody>

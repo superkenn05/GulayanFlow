@@ -74,16 +74,21 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
-        // Only propagate if it's a permission/auth issue to avoid masking other errors
+        // Standard error reporting for non-permission issues (e.g., missing index)
+        setError(err);
+
+        // Specific handling for permission/auth issues
         if (err.code === 'permission-denied' || err.code === 'unauthenticated') {
           let path: string = 'unknown';
           try {
-            path = memoizedTargetRefOrQuery.type === 'collection'
-              ? (memoizedTargetRefOrQuery as CollectionReference).path
-              : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString();
+            // Attempt to derive path for the error message
+            if ((memoizedTargetRefOrQuery as any).path) {
+              path = (memoizedTargetRefOrQuery as any).path;
+            } else if ((memoizedTargetRefOrQuery as any)._query?.path) {
+              path = (memoizedTargetRefOrQuery as any)._query.path.canonicalString?.() || (memoizedTargetRefOrQuery as any)._query.path.toString();
+            }
           } catch (e) {
-            // Fallback for collectionGroup or other query types
-            path = (memoizedTargetRefOrQuery as any)._query?.path?.toString() || 'collection-group';
+            path = 'collection-group-or-complex-query';
           }
 
           const contextualError = new FirestorePermissionError({
@@ -91,14 +96,10 @@ export function useCollection<T = any>(
             path,
           });
 
-          setError(contextualError);
           errorEmitter.emit('permission-error', contextualError);
-        } else {
-          // Standard error reporting for non-permission issues (e.g., missing index)
-          setError(err);
         }
         
-        setData(null);
+        setData([]); // Return empty array on error so UI doesn't hang
         setIsLoading(false);
       }
     );
