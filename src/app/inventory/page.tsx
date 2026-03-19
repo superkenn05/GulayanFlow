@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useRef, useEffect } from 'react'
@@ -367,7 +368,7 @@ export default function InventoryPage() {
                     </div>
                   </div>
 
-                  <Separator className="my-2" />
+                  <Separator className="my-4" />
 
                   {/* Nutritional Values Section */}
                   <div className="space-y-4">
@@ -398,7 +399,7 @@ export default function InventoryPage() {
                     </div>
                   </div>
 
-                  <Separator className="my-2" />
+                  <Separator className="my-4" />
 
                   {/* Stock Management */}
                   <div className="grid grid-cols-2 gap-6">
@@ -458,13 +459,13 @@ export default function InventoryPage() {
                   </div>
                 </div>
                 <CardHeader className="p-4 pb-0">
-                  <div className="flex justify-between items-start">
+                  <div className="flex justify-between items-center">
                     <div className="flex-1 overflow-hidden">
                       <CardTitle className="text-lg line-clamp-1">{product.name}</CardTitle>
                       <CardDescription>{category?.name || 'Uncategorized'}</CardDescription>
                     </div>
                     {isAdmin && (
-                      <div className="ml-2">
+                      <div className="ml-2 shrink-0">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
