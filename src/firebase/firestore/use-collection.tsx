@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -75,10 +76,15 @@ export function useCollection<T = any>(
       (err: FirestoreError) => {
         // Only propagate if it's a permission/auth issue to avoid masking other errors
         if (err.code === 'permission-denied' || err.code === 'unauthenticated') {
-          const path: string =
-            memoizedTargetRefOrQuery.type === 'collection'
+          let path: string = 'unknown';
+          try {
+            path = memoizedTargetRefOrQuery.type === 'collection'
               ? (memoizedTargetRefOrQuery as CollectionReference).path
               : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString();
+          } catch (e) {
+            // Fallback for collectionGroup or other query types
+            path = (memoizedTargetRefOrQuery as any)._query?.path?.toString() || 'collection-group';
+          }
 
           const contextualError = new FirestorePermissionError({
             operation: 'list',
