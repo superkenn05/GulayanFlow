@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/layout/AppSidebar"
 import { Toaster } from "@/components/ui/toaster"
 import { FirebaseClientProvider } from '@/firebase';
 import { Separator } from '@/components/ui/separator';
+import { AuthInitializer } from '@/components/AuthInitializer';
 
 export const metadata: Metadata = {
   title: 'GulayanFlow | Gemma\'s Gulayan Inventory',
@@ -25,7 +26,9 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased bg-background text-foreground">
         <FirebaseClientProvider>
-          <LayoutContent>{children}</LayoutContent>
+          <AuthInitializer>
+            <LayoutContent>{children}</LayoutContent>
+          </AuthInitializer>
           <Toaster />
         </FirebaseClientProvider>
       </body>
@@ -44,8 +47,10 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
               <SidebarTrigger className="-ml-1" />
               <Separator orientation="vertical" className="mr-2 h-4" />
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-primary">GulayanFlow</span>
-                <span className="text-xs text-muted-foreground hidden sm:inline-block">/ Dashboard</span>
+                <span className="text-sm font-semibold text-primary font-headline tracking-tight">GulayanFlow</span>
+                <span className="text-[10px] bg-muted px-2 py-0.5 rounded font-bold text-muted-foreground hidden sm:inline-block uppercase tracking-wider">
+                  Inventory Control
+                </span>
               </div>
             </header>
           </HeaderWrapper>
