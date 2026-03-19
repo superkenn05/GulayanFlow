@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Star, Trash2, MessageSquare, Loader2, ExternalLink, Search, AlertCircle, RefreshCw } from "lucide-react"
 import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from '@/firebase'
-import { collectionGroup, query, orderBy, doc, deleteDoc } from 'firebase/firestore'
+import { collectionGroup, query, doc } from 'firebase/firestore'
+import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates'
 import { toast } from '@/hooks/use-toast'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
@@ -31,8 +32,6 @@ export default function ReviewManagementPage() {
   
   const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || user?.email === 'markken@gulayan.ph'
 
-  // Simplified query: Removing orderBy temporarily to see if it fetches without a composite index
-  // Note: Collection Group queries often still require a simple index.
   const reviewsQuery = useMemoFirebase(() => 
     isAuthenticated ? query(collectionGroup(db, 'reviews')) : null,
     [db, isAuthenticated]
@@ -44,22 +43,20 @@ export default function ReviewManagementPage() {
     r.productName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.userName?.toLowerCase().includes(searchTerm.toLowerCase())
   ).sort((a, b) => {
-    // Manual sort since we removed it from the query for better compatibility
     const dateA = a.createdAt?.toDate?.() || new Date(0)
     const dateB = b.createdAt?.toDate?.() || new Date(0)
     return dateB.getTime() - dateA.getTime()
   })
 
-  const handleDelete = async (productId: string, reviewId: string) => {
-    if (!isAdmin || !productId || !reviewId) {
-      toast({ title: "Cannot Delete", description: "Missing required IDs for deletion.", variant: "destructive" })
-      return
-    }
-    try {
-      await deleteDoc(doc(db, 'products', productId, 'reviews', reviewId))
-      toast({ title: "Review Deleted", description: "Feedback has been removed." })
-    } catch (e) {
-      toast({ title: "Error", description: "Could not delete review.", variant: "destructive" })
+  const handleDelete = (productId: string, reviewId: string, userName: string) => {
+    if (!isAdmin || !productId || !reviewId) return
+
+    if (confirm(`Are you sure you want to delete the review from ${userName || 'this customer'}?`)) {
+      deleteDocumentNonBlocking(doc(db, 'products', productId, 'reviews', reviewId))
+      toast({ 
+        title: "Review Deleted", 
+        description: "The feedback has been removed from the product catalog." 
+      })
     }
   }
 
@@ -160,7 +157,7 @@ export default function ReviewManagementPage() {
                       variant="ghost" 
                       size="icon" 
                       className="text-destructive hover:bg-destructive/10 rounded-full"
-                      onClick={() => handleDelete(review.productId, review.id)}
+                      onClick={() => handleDelete(review.productId, review.id, review.userName)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
