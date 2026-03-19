@@ -47,7 +47,10 @@ export default function DashboardPage() {
   const { data: profile } = useDoc(staffRef);
 
   // Guard the config fetch until authenticated to prevent permission errors
-  const configRef = useMemoFirebase(() => isAuthenticated ? doc(db, 'storeConfigs', 'settings') : null, [db, isAuthenticated]);
+  const configRef = useMemoFirebase(() => {
+    if (!isAuthenticated || !db) return null;
+    return doc(db, 'storeConfigs', 'settings');
+  }, [db, isAuthenticated]);
   const { data: config } = useDoc(configRef);
 
   const productsQuery = useMemoFirebase(() => 
@@ -58,7 +61,7 @@ export default function DashboardPage() {
   const transactionsQuery = useMemoFirebase(() => 
     isAuthenticated ? query(
       collection(db, 'stockTransactions'), 
-      where('staffUserId', '==', user.uid),
+      where('staffUserId', '==', user?.uid || ''),
       orderBy('transactionDate', 'desc'), 
       limit(10)
     ) : null, 
@@ -69,7 +72,7 @@ export default function DashboardPage() {
     isAuthenticated ? query(
       collection(db, 'stockTransactions'), 
       where('transactionType', '==', 'STOCK_OUT_SALE'),
-      where('staffUserId', '==', user.uid)
+      where('staffUserId', '==', user?.uid || '')
     ) : null, 
     [db, isAuthenticated, user?.uid]
   );
@@ -118,26 +121,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
-      {/* Hero Banner Section */}
-      <div className="relative h-64 md:h-80 w-full overflow-hidden rounded-3xl shadow-xl ring-1 ring-border">
-        <Image 
-          src={bannerImage} 
-          alt="Store Banner" 
-          fill 
-          className="object-cover" 
-          priority 
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex flex-col justify-end p-8 md:p-12">
-          <h2 className="text-3xl md:text-5xl font-black text-white tracking-tight drop-shadow-md">
-            Gemma&apos;s Gulayan
-          </h2>
-          <p className="text-white/90 text-lg md:text-xl font-medium max-w-lg mt-2 drop-shadow-sm">
-            Fresh harvest management & real-time inventory control.
-          </p>
-        </div>
-      </div>
-
-      {/* Header with Welcome */}
+      {/* Dashboard Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-headline font-bold text-primary">Overview</h1>

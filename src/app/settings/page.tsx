@@ -20,15 +20,21 @@ export default function StoreSettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const db = useFirestore();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
 
-  const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user]);
+  const staffRef = useMemoFirebase(() => {
+    if (!user || isUserLoading) return null;
+    return doc(db, 'staffUsers', user.uid);
+  }, [db, user, isUserLoading]);
   const { data: profile } = useDoc(staffRef);
 
   const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || user?.email === 'markken@gulayan.ph';
 
   // Guard the config fetch until authenticated and admin status is confirmed
-  const configRef = useMemoFirebase(() => isAdmin ? doc(db, 'storeConfigs', 'settings') : null, [db, isAdmin]);
+  const configRef = useMemoFirebase(() => {
+    if (!isAdmin || !db || isUserLoading) return null;
+    return doc(db, 'storeConfigs', 'settings');
+  }, [db, isAdmin, isUserLoading]);
   const { data: config, isLoading: isConfigLoading } = useDoc(configRef);
 
   useEffect(() => {
@@ -81,6 +87,10 @@ export default function StoreSettingsPage() {
       setIsSaving(false);
     }
   };
+
+  if (isUserLoading) {
+    return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin opacity-20" /></div>;
+  }
 
   if (!isAdmin) {
     return (

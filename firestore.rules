@@ -2,15 +2,16 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Explicitly allow access to global store configuration
+    // Adding a comment to trigger rules deployment
+    match /storeConfigs/{configId} {
+      allow read, write: if request.auth != null;
+    }
+
     // Explicitly allow collection group queries for 'orders'
     // This is required for store-wide pending order indicators
     match /{path=**}/orders/{orderId} {
       allow read: if request.auth != null;
-    }
-
-    // Explicitly allow access to global store configuration
-    match /storeConfigs/{configId} {
-      allow read, write: if request.auth != null;
     }
 
     // General rule for all other documents
