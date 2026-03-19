@@ -25,7 +25,10 @@ export default function StoreSettingsPage() {
   const staffRef = useMemoFirebase(() => user ? doc(db, 'staffUsers', user.uid) : null, [db, user]);
   const { data: profile } = useDoc(staffRef);
 
-  const configRef = useMemoFirebase(() => doc(db, 'storeConfigs', 'settings'), [db]);
+  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || user?.email === 'markken@gulayan.ph';
+
+  // Guard the config fetch until authenticated and admin status is confirmed
+  const configRef = useMemoFirebase(() => isAdmin ? doc(db, 'storeConfigs', 'settings') : null, [db, isAdmin]);
   const { data: config, isLoading: isConfigLoading } = useDoc(configRef);
 
   useEffect(() => {
@@ -34,8 +37,6 @@ export default function StoreSettingsPage() {
       setLocalPreview(config.bannerUrl);
     }
   }, [config]);
-
-  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || user?.email === 'markken@gulayan.ph';
 
   const handleCloudinaryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -65,6 +66,8 @@ export default function StoreSettingsPage() {
   };
 
   const handleSaveSettings = () => {
+    if (!configRef) return;
+    
     setIsSaving(true);
     try {
       setDocumentNonBlocking(configRef, {

@@ -46,7 +46,8 @@ export default function DashboardPage() {
   const staffRef = useMemoFirebase(() => isAuthenticated ? doc(db, 'staffUsers', user.uid) : null, [db, user, isAuthenticated]);
   const { data: profile } = useDoc(staffRef);
 
-  const configRef = useMemoFirebase(() => doc(db, 'storeConfigs', 'settings'), [db]);
+  // Guard the config fetch until authenticated to prevent permission errors
+  const configRef = useMemoFirebase(() => isAuthenticated ? doc(db, 'storeConfigs', 'settings') : null, [db, isAuthenticated]);
   const { data: config } = useDoc(configRef);
 
   const productsQuery = useMemoFirebase(() => 
