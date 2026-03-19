@@ -27,8 +27,9 @@ export default function ReviewManagementPage() {
   const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous
   
   const staffRef = useMemoFirebase(() => isAuthenticated ? doc(db, 'staffUsers', user.uid) : null, [db, user, isAuthenticated])
-  const { data: profile } = useDoc(staffRef)
+  const { data: profile, isLoading: isProfileLoading } = useDoc(staffRef)
   
+  // Wait for profile to load before determining Admin status
   const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || user?.email === 'markken@gulayan.ph'
 
   // Uses Collection Group query to fetch all reviews from path: products/{productId}/reviews/{reviewId}
@@ -55,7 +56,13 @@ export default function ReviewManagementPage() {
     }
   }
 
-  if (!mounted || isUserLoading) return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" /></div>
+  if (!mounted || isUserLoading || isProfileLoading) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+      </div>
+    )
+  }
   
   if (!isAdmin) {
     return (
@@ -150,7 +157,7 @@ export default function ReviewManagementPage() {
                   </TableCell>
                 </TableRow>
               ))}
-              {isLoading && (
+              {(isLoading) && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-20"><Loader2 className="h-6 w-6 animate-spin mx-auto opacity-20" /></TableCell>
                 </TableRow>

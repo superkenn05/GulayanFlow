@@ -32,19 +32,30 @@ import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates'
 
 export default function ProductDetailPage({ params }: { params: Promise<{ productId: string }> }) {
   const { productId } = use(params)
+  const [mounted, setMounted] = useState(false)
   const [quantity, setQuantity] = useState(1)
   const [reviewRating, setReviewRating] = useState(0)
   const [reviewText, setReviewText] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const { user } = useUser()
+  
+  const { user, isUserLoading } = useUser()
   const db = useFirestore()
 
-  const productRef = useMemoFirebase(() => doc(db, 'products', productId), [db, productId])
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous
+
+  const productRef = useMemoFirebase(() => 
+    isAuthenticated ? doc(db, 'products', productId) : null, 
+    [db, productId, isAuthenticated]
+  )
   const { data: productData, isLoading: productLoading } = useDoc(productRef)
   
   const reviewsQuery = useMemoFirebase(() => 
-    query(collection(db, 'products', productId, 'reviews'), orderBy('createdAt', 'desc')), 
-    [db, productId]
+    isAuthenticated ? query(collection(db, 'products', productId, 'reviews'), orderBy('createdAt', 'desc')) : null, 
+    [db, productId, isAuthenticated]
   )
   const { data: reviews, isLoading: reviewsLoading } = useCollection(reviewsQuery)
 
@@ -84,8 +95,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
     toast({ title: "Review Removed" })
   }
 
-  if (productLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-  if (!product) return <div className="p-10 text-center">Product not found</div>
+  if (!mounted || isUserLoading || productLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />
+      </div>
+    )
+  }
+
+  if (!product) return <div className="p-10 text-center font-bold text-muted-foreground">Product not found</div>
 
   return (
     <div className="max-w-md mx-auto bg-background min-h-screen pb-32 animate-in fade-in duration-500">
@@ -252,7 +270,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ produc
           )}
 
           <div className="space-y-4">
-            {reviews?.map((review) => (
+            {reviewsLoading ? (
+              <div className="flex justify-center py-10">
+                <Loader2 className="h-6 w-6 animate-spin opacity-10" />
+              </div>
+            ) : reviews?.map((review) => (
               <div key={review.id} className="bg-muted/10 p-4 rounded-2xl border border-transparent hover:border-border transition-all">
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center gap-2">
