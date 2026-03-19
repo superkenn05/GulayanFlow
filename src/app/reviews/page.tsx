@@ -6,12 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Star, Trash2, MessageSquare, Loader2, ExternalLink, Search } from "lucide-react"
+import { Star, Trash2, MessageSquare, Loader2, ExternalLink, Search, AlertCircle } from "lucide-react"
 import { useUser, useFirestore, useMemoFirebase, useCollection, useDoc } from '@/firebase'
 import { collectionGroup, query, orderBy, doc, deleteDoc } from 'firebase/firestore'
 import { toast } from '@/hooks/use-toast'
 import { Input } from '@/components/ui/input'
 import Link from 'next/link'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 export default function ReviewManagementPage() {
   const [mounted, setMounted] = useState(false)
@@ -53,7 +54,17 @@ export default function ReviewManagementPage() {
   }
 
   if (!mounted || isUserLoading) return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" /></div>
-  if (!isAdmin) return <div className="p-20 text-center font-bold">Access Denied</div>
+  
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
+        <AlertCircle className="h-12 w-12 text-destructive opacity-20" />
+        <h2 className="text-2xl font-bold">Access Denied</h2>
+        <p className="text-muted-foreground">Only store administrators can manage customer reviews.</p>
+        <Button asChild variant="outline"><Link href="/">Back to Dashboard</Link></Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
@@ -70,13 +81,24 @@ export default function ReviewManagementPage() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input 
           placeholder="Filter reviews by product, user, or comment..." 
-          className="pl-10"
+          className="pl-10 h-11"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      <Card>
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Index Required</AlertTitle>
+          <AlertDescription>
+            The review dashboard requires a Firestore collection group index. 
+            If this is the first time you are viewing this page, please click the link in your browser console to create the index.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <Card className="border-none shadow-md">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -140,13 +162,6 @@ export default function ReviewManagementPage() {
           </Table>
         </CardContent>
       </Card>
-      
-      {error && (
-        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-xs">
-          <strong>Notice:</strong> Review dashboard requires a Firestore collection group index. 
-          Please follow the link in your console to enable cross-product review monitoring.
-        </div>
-      )}
     </div>
   )
 }

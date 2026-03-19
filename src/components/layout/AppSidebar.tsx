@@ -43,7 +43,7 @@ const items = [
   { title: "Inventory", url: "/inventory", icon: Package },
   { title: "Orders", url: "/orders", icon: ShoppingBasket },
   { title: "Payments", url: "/payments", icon: CreditCard },
-  { title: "Reviews", url: "/reviews", icon: MessageSquare },
+  { title: "Reviews", url: "/reviews", icon: MessageSquare, adminOnly: true },
   { title: "Stock Tracking", url: "/stock", icon: History },
   { title: "Categories", url: "/categories", icon: Tags },
   { title: "Suppliers", url: "/suppliers", icon: Truck },
