@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates'
 import { toast } from '@/hooks/use-toast'
-import { sendOrderEmailAction } from './email-actions'
+import emailjs from '@emailjs/browser'
 
 export default function OrdersPage() {
   const [mounted, setMounted] = useState(false)
@@ -121,7 +121,7 @@ export default function OrdersPage() {
         orderId: order.id
       }, { merge: true })
 
-      // 4. Send Email via EmailJS (Secure Server Action)
+      // 4. Send Email via EmailJS Client SDK
       const orderDateStr = new Date().toLocaleDateString('en-PH', {
         year: 'numeric',
         month: 'long',
@@ -130,16 +130,24 @@ export default function OrdersPage() {
 
       const itemsDescription = order.items.map(i => 
         `${i.quantity}x ${i.name} - ₱${(i.quantity * i.pricePerUnit).toLocaleString()}`
-      ).join('\n');
+      ).join(', ');
 
-      await sendOrderEmailAction({
-        customer_name: `${activeProfile.firstName} ${activeProfile.lastName}`,
-        order_id: order.id.substring(0, 8).toUpperCase(),
-        order_date: orderDateStr,
-        total_amount: order.total.toLocaleString(),
-        order_items: itemsDescription,
-        to_email: activeProfile.email
-      });
+      await emailjs.send(
+        process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
+        process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
+        {
+          customer_name: `${activeProfile.firstName} ${activeProfile.lastName}`,
+          order_id: order.id.substring(0, 8).toUpperCase(),
+          order_date: orderDateStr,
+          total_amount: order.total.toLocaleString(),
+          order_items: itemsDescription,
+          to_email: activeProfile.email,
+          title: `Order Completed: ${order.id.substring(0, 8).toUpperCase()}`,
+          name: "Gemma's Gulayan Team 🌿",
+          email: "support@gulayan.ph",
+        },
+        process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY!
+      );
 
       toast({
         title: "Order Processed",
@@ -150,8 +158,8 @@ export default function OrdersPage() {
     } catch (error) {
       console.error("Failed to process order stock or send email:", error)
       toast({
-        title: "Fulfillment Error",
-        description: "Order updated but email notification might have failed.",
+        title: "Fulfillment Notice",
+        description: "Order updated. Note: Email service might have encountered an issue.",
         variant: "destructive"
       })
     } finally {

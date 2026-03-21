@@ -7,10 +7,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Leaf, Loader2, Lock, Mail } from "lucide-react"
+import { Leaf, Loader2, Lock, Mail, AlertCircle } from "lucide-react"
 import { useAuth, useUser } from '@/firebase'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { toast } from '@/hooks/use-toast'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -40,17 +41,20 @@ export default function LoginPage() {
       toast({ 
         variant: "destructive", 
         title: "Login Failed", 
-        description: "Invalid email or password. Please check your credentials." 
+        description: "Invalid credentials. Please try again." 
       })
     } finally {
       setIsLoading(false)
     }
   }
 
+  const isConfigMissing = !process.env.NEXT_PUBLIC_FIREBASE_API_KEY
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md shadow-2xl border-none">
-        <CardHeader className="space-y-1 text-center">
+      <Card className="w-full max-w-md shadow-2xl border-none overflow-hidden">
+        <div className="h-2 bg-primary w-full" />
+        <CardHeader className="space-y-1 text-center pb-8">
           <div className="flex justify-center mb-6">
             <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
               <Leaf className="h-9 w-9" />
@@ -58,9 +62,21 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-3xl font-headline font-bold text-primary">GulayanFlow</CardTitle>
           <CardDescription>
-            Login to manage Gemma's Gulayan Store
+            Enter your credentials to access the store management system.
           </CardDescription>
         </CardHeader>
+        
+        {isConfigMissing && (
+          <div className="px-6 pb-4">
+            <Alert variant="destructive" className="bg-destructive/5">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                System configuration is incomplete. Check environment variables.
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -70,8 +86,8 @@ export default function LoginPage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="markken@gulayan.ph" 
-                  className="pl-10 h-12 rounded-xl"
+                  placeholder="name@gulayan.ph" 
+                  className="pl-10 h-12 rounded-xl focus:ring-primary/20"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required 
@@ -86,7 +102,7 @@ export default function LoginPage() {
                   id="password" 
                   type="password" 
                   placeholder="••••••••"
-                  className="pl-10 h-12 rounded-xl"
+                  className="pl-10 h-12 rounded-xl focus:ring-primary/20"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required 
@@ -94,12 +110,16 @@ export default function LoginPage() {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-4">
-            <Button className="w-full h-12 text-base font-bold rounded-xl shadow-lg shadow-primary/20" type="submit" disabled={isLoading}>
+          <CardFooter className="flex flex-col gap-4 pt-4">
+            <Button 
+              className="w-full h-12 text-base font-bold rounded-xl shadow-lg shadow-primary/20" 
+              type="submit" 
+              disabled={isLoading || isConfigMissing}
+            >
               {isLoading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : "Sign In"}
             </Button>
             <div className="text-center">
-              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest opacity-60">
                 Authorized Personnel Only
               </p>
             </div>
