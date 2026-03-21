@@ -20,7 +20,7 @@ export async function sendOrderEmailAction(params: {
 
   if (!serviceId || !templateId || !publicKey) {
     console.error("Missing EmailJS configuration in environment variables.");
-    throw new Error("Email service is not configured.");
+    throw new Error("Email service is not configured in environment variables.");
   }
 
   const data = {
@@ -29,10 +29,9 @@ export async function sendOrderEmailAction(params: {
     user_id: publicKey,
     template_params: {
       ...params,
-      // Mapping additional fields seen in the screenshot
       title: `Order Completed: ${params.order_id}`,
       name: "Gemma's Gulayan Team 🌿",
-      email: "support@gulayan.ph", // Default reply-to
+      email: "support@gulayan.ph",
     }
   };
 
@@ -47,11 +46,17 @@ export async function sendOrderEmailAction(params: {
 
     if (!response.ok) {
       const errorText = await response.text();
+      
+      // Handle the specific "non-browser environment" error from EmailJS
+      if (errorText.includes("non-browser environments")) {
+        throw new Error("EmailJS Setup Required: Please enable 'Allow API access from non-browser environments' in your EmailJS Dashboard (Account > Security).");
+      }
+      
       throw new Error(`EmailJS API Error: ${errorText}`);
     }
 
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to send email via EmailJS:", error);
     throw error;
   }

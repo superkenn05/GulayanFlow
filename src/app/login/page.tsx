@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -6,24 +7,21 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Leaf, Loader2, Lock, Mail, AlertCircle } from "lucide-react"
+import { Leaf, Loader2, Lock, Mail } from "lucide-react"
 import { useAuth, useUser } from '@/firebase'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { toast } from '@/hooks/use-toast'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [configError, setConfigError] = useState<string | null>(null)
   
   const auth = useAuth()
   const router = useRouter()
   const { user } = useUser()
 
   useEffect(() => {
-    // Redirect if already logged in with a real account
     if (user && !user.isAnonymous) {
       router.push('/')
     }
@@ -32,15 +30,6 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setConfigError(null)
-
-    // Check if configuration is present
-    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY
-    if (!apiKey) {
-      setConfigError("System Error: Firebase API Key is missing. Please check your environment variables.")
-      setIsLoading(false)
-      return
-    }
 
     try {
       await signInWithEmailAndPassword(auth, email, password)
@@ -48,13 +37,11 @@ export default function LoginPage() {
       router.push('/')
     } catch (err: any) {
       console.error("Auth Error:", err)
-      let msg = "Invalid email or password."
-      if (err.code === 'auth/network-request-failed') msg = "Network error. Check your connection."
-      if (err.code === 'auth/user-not-found') msg = "No account found with this email."
-      if (err.code === 'auth/wrong-password') msg = "Incorrect password."
-      if (err.code === 'auth/invalid-credential') msg = "Invalid credentials provided."
-      
-      toast({ variant: "destructive", title: "Login Failed", description: msg })
+      toast({ 
+        variant: "destructive", 
+        title: "Login Failed", 
+        description: "Invalid email or password. Please check your credentials." 
+      })
     } finally {
       setIsLoading(false)
     }
@@ -71,18 +58,11 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-3xl font-headline font-bold text-primary">GulayanFlow</CardTitle>
           <CardDescription>
-            Management Portal for Gemma's Gulayan
+            Login to manage Gemma's Gulayan Store
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
-            {configError && (
-              <Alert variant="destructive" className="border-destructive/50 bg-destructive/5">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle className="text-xs font-bold uppercase">Setup Required</AlertTitle>
-                <AlertDescription className="text-xs leading-relaxed">{configError}</AlertDescription>
-              </Alert>
-            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
               <div className="relative">
@@ -90,7 +70,7 @@ export default function LoginPage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="staff@gulayan.ph" 
+                  placeholder="markken@gulayan.ph" 
                   className="pl-10 h-12 rounded-xl"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -116,14 +96,11 @@ export default function LoginPage() {
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button className="w-full h-12 text-base font-bold rounded-xl shadow-lg shadow-primary/20" type="submit" disabled={isLoading}>
-              {isLoading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : "Sign In to Dashboard"}
+              {isLoading ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : "Sign In"}
             </Button>
-            <div className="text-center space-y-1">
+            <div className="text-center">
               <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
                 Authorized Personnel Only
-              </p>
-              <p className="text-[9px] text-muted-foreground/60 italic">
-                Secure Management Environment
               </p>
             </div>
           </CardFooter>
