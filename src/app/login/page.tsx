@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -24,7 +23,7 @@ export default function LoginPage() {
   const { user } = useUser()
 
   useEffect(() => {
-    // Redirect if already logged in
+    // Redirect if already logged in with a real account
     if (user && !user.isAnonymous) {
       router.push('/')
     }
@@ -35,10 +34,10 @@ export default function LoginPage() {
     setIsLoading(true)
     setConfigError(null)
 
-    // Pre-flight check for API Key
+    // Check if configuration is present
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY
-    if (!apiKey || apiKey.includes('[YOUR_')) {
-      setConfigError("System Error: Firebase API Key is missing. Please update your .env file with values from the Firebase Console.")
+    if (!apiKey) {
+      setConfigError("System Error: Firebase API Key is missing. Please check your environment variables.")
       setIsLoading(false)
       return
     }
@@ -53,7 +52,7 @@ export default function LoginPage() {
       if (err.code === 'auth/network-request-failed') msg = "Network error. Check your connection."
       if (err.code === 'auth/user-not-found') msg = "No account found with this email."
       if (err.code === 'auth/wrong-password') msg = "Incorrect password."
-      if (err.code === 'auth/api-key-not-valid') msg = "Configuration error: Invalid API Key in .env."
+      if (err.code === 'auth/invalid-credential') msg = "Invalid credentials provided."
       
       toast({ variant: "destructive", title: "Login Failed", description: msg })
     } finally {
