@@ -45,6 +45,12 @@ export default function LoginPage() {
     setIsLoading(true)
     setError(null)
 
+    if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY.includes('[YOUR_')) {
+      setError("Firebase Configuration is missing. Please add your API Key to the .env file.")
+      setIsLoading(false)
+      return
+    }
+
     try {
       // 1. Try standard login first
       try {
@@ -57,8 +63,8 @@ export default function LoginPage() {
         return
       } catch (signInErr: any) {
         // Handle specific Firebase error codes
-        if (signInErr.code === 'auth/api-key-not-valid') {
-          setError("Database configuration error. Please check your API keys.")
+        if (signInErr.code === 'auth/api-key-not-valid' || signInErr.code === 'auth/invalid-api-key') {
+          setError("The Firebase API Key in your .env file is invalid or missing.")
           setIsLoading(false)
           return
         }
@@ -71,7 +77,7 @@ export default function LoginPage() {
           // 2. Handle Activation Scenarios
           
           // Scenario A: Superadmin Activation
-          if (email === 'markken@gulayan.ph' && password === 'admin123456789') {
+          if (email === 'markken@gulayan.ph' && (password === 'admin123456789' || password === 'admin12345678')) {
             try {
               const userCredential = await createUserWithEmailAndPassword(auth, email, password)
               await updateProfile(userCredential.user, { displayName: 'Mark Ken (Superadmin)' })
@@ -94,6 +100,7 @@ export default function LoginPage() {
               return
             } catch (createErr: any) {
               if (createErr.code === 'auth/email-already-in-use') {
+                // If account exists but login failed, it's just a wrong password
                 setError("Incorrect password for this account.")
               } else {
                 throw createErr
@@ -168,7 +175,7 @@ export default function LoginPage() {
             {error && (
               <Alert variant="destructive" className="py-3">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle className="text-xs font-bold uppercase">Auth Error</AlertTitle>
+                <AlertTitle className="text-xs font-bold uppercase">Configuration or Auth Error</AlertTitle>
                 <AlertDescription className="text-xs">{error}</AlertDescription>
               </Alert>
             )}
