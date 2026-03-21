@@ -40,11 +40,65 @@ export default function LoginPage() {
     }
   }, [user, router])
 
+  const handleActivation = async (email: string, pass: string) => {
+    // 1. Superadmin Special Activation
+    if (email === 'markken@gulayan.ph' && pass === 'admin123456789') {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, pass)
+      await updateProfile(userCredential.user, { displayName: 'Mark Ken (Superadmin)' })
+      
+      const batch = writeBatch(db)
+      const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
+      batch.set(newUserRef, {
+        id: userCredential.user.uid,
+        name: 'Mark Ken (Superadmin)',
+        email: email,
+        role: 'Superadmin',
+        status: 'active',
+        createdAt: serverTimestamp(),
+        lastLogin: serverTimestamp()
+      })
+      await batch.commit()
+      return true
+    }
+
+    // 2. Pre-registered Staff Activation
+    const staffDocId = email.replace(/[^a-zA-Z0-9]/g, '_')
+    const staffDocRef = doc(db, 'staffUsers', staffDocId)
+    const staffSnapshot = await getDoc(staffDocRef)
+
+    if (staffSnapshot.exists()) {
+      const staffData = staffSnapshot.data()
+      if (staffData.password === pass) {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, pass)
+        await updateProfile(userCredential.user, { displayName: staffData.name })
+
+        const batch = writeBatch(db)
+        const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
+        const { password: _, ...dataToSave } = staffData 
+        
+        batch.set(newUserRef, {
+          ...dataToSave,
+          id: userCredential.user.uid,
+          lastLogin: serverTimestamp(),
+          status: 'active',
+          updatedAt: serverTimestamp()
+        })
+        batch.delete(staffDocRef)
+
+        await batch.commit()
+        return true
+      }
+    }
+
+    return false
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
 
+    // Check for missing configuration
     if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY.includes('[YOUR_')) {
       setError("Firebase Configuration is missing. Please add your API Key to the .env file.")
       setIsLoading(false)
@@ -52,105 +106,32 @@ export default function LoginPage() {
     }
 
     try {
-      // 1. Try standard login first
+      // Step 1: Attempt standard sign-in
       try {
         await signInWithEmailAndPassword(auth, email, password)
-        toast({
-          title: "Welcome back!",
-          description: "Successfully signed in.",
-        })
+        toast({ title: "Welcome back!", description: "Successfully signed in." })
         router.push('/')
-        return
       } catch (signInErr: any) {
-        // Handle specific Firebase error codes
-        if (signInErr.code === 'auth/api-key-not-valid' || signInErr.code === 'auth/invalid-api-key') {
-          setError("The Firebase API Key in your .env file is invalid or missing.")
-          setIsLoading(false)
-          return
-        }
-
-        const isAuthError = signInErr.code === 'auth/user-not-found' || 
-                           signInErr.code === 'auth/invalid-credential' || 
-                           signInErr.code === 'auth/wrong-password';
-
-        if (isAuthError) {
-          // 2. Handle Activation Scenarios
-          
-          // Scenario A: Superadmin Activation
-          if (email === 'markken@gulayan.ph' && (password === 'admin123456789' || password === 'admin12345678')) {
-            try {
-              const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-              await updateProfile(userCredential.user, { displayName: 'Mark Ken (Superadmin)' })
-              
-              const batch = writeBatch(db)
-              const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
-              batch.set(newUserRef, {
-                id: userCredential.user.uid,
-                name: 'Mark Ken (Superadmin)',
-                email: email,
-                role: 'Superadmin',
-                status: 'active',
-                createdAt: serverTimestamp(),
-                lastLogin: serverTimestamp()
-              })
-              await batch.commit()
-              
-              toast({ title: "Superadmin Activated", description: "Welcome, Mark Ken!" })
-              router.push('/')
-              return
-            } catch (createErr: any) {
-              if (createErr.code === 'auth/email-already-in-use') {
-                // If account exists but login failed, it's just a wrong password
-                setError("Incorrect password for this account.")
-              } else {
-                throw createErr
-              }
-            }
-          }
-
-          // Scenario B: Staff Activation
-          const staffDocId = email.replace(/[^a-zA-Z0-9]/g, '_')
-          const staffDocRef = doc(db, 'staffUsers', staffDocId)
-          const staffSnapshot = await getDoc(staffDocRef)
-
-          if (staffSnapshot.exists()) {
-            const staffData = staffSnapshot.data()
-
-            if (staffData.password === password) {
-              const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-              await updateProfile(userCredential.user, { displayName: staffData.name })
-
-              const batch = writeBatch(db)
-              const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
-              const { password: _, ...dataToSave } = staffData 
-              
-              batch.set(newUserRef, {
-                ...dataToSave,
-                id: userCredential.user.uid,
-                lastLogin: serverTimestamp(),
-                status: 'active',
-                updatedAt: serverTimestamp()
-              })
-              batch.delete(staffDocRef)
-
-              await batch.commit()
-              toast({ title: "Account Activated", description: `Welcome, ${staffData.name}!` })
-              router.push('/')
-              return
-            }
+        // Handle invalid credentials by attempting activation
+        if (signInErr.code === 'auth/invalid-credential' || signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/wrong-password') {
+          const activated = await handleActivation(email, password)
+          if (activated) {
+            toast({ title: "Account Activated", description: "Your credentials have been verified." })
+            router.push('/')
+            return
           }
         }
-        
         throw signInErr
       }
     } catch (err: any) {
       console.error("Login Error:", err)
-      setError(err.message || "Invalid email or password.")
-      toast({
-        variant: "destructive",
-        title: "Login Failed",
-        description: "Please check your credentials.",
-      })
+      let msg = "Invalid email or password."
+      
+      if (err.code === 'auth/api-key-not-valid') msg = "Invalid Firebase API Key. Check your .env file."
+      if (err.code === 'auth/network-request-failed') msg = "Network error. Please check your connection."
+      
+      setError(msg)
+      toast({ variant: "destructive", title: "Login Failed", description: msg })
     } finally {
       setIsLoading(false)
     }
@@ -175,7 +156,7 @@ export default function LoginPage() {
             {error && (
               <Alert variant="destructive" className="py-3">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle className="text-xs font-bold uppercase">Configuration or Auth Error</AlertTitle>
+                <AlertTitle className="text-xs font-bold uppercase">System Message</AlertTitle>
                 <AlertDescription className="text-xs">{error}</AlertDescription>
               </Alert>
             )}
