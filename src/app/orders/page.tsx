@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ShoppingBasket, Eye, Loader2, MapPin, CreditCard, Calendar, User, Search, ChevronRight, CheckCircle2, MailCheck } from "lucide-react"
+import { ShoppingBasket, Eye, Loader2, User, Search, ChevronRight, MailCheck } from "lucide-react"
 import { 
   Dialog, 
   DialogContent, 
@@ -23,6 +23,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates'
 import { toast } from '@/hooks/use-toast'
 import { generateOrderEmail } from '@/ai/flows/order-notification-flow'
+import { sendOrderEmailAction } from './email-actions'
 
 export default function OrdersPage() {
   const [mounted, setMounted] = useState(false)
@@ -40,14 +41,12 @@ export default function OrdersPage() {
 
   const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous
 
-  // 1. Fetch all User Profiles (Customers)
   const profilesQuery = useMemoFirebase(() => 
     isAuthenticated ? query(collection(db, 'userProfiles')) : null,
     [db, isAuthenticated]
   )
   const { data: profiles, isLoading: profilesLoading } = useCollection<UserProfile>(profilesQuery)
 
-  // 2. Fetch ALL pending orders across all customers for red dot indicators
   const pendingOrdersGroupQuery = useMemoFirebase(() => 
     isAuthenticated ? query(
       collectionGroup(db, 'orders'),
@@ -55,16 +54,14 @@ export default function OrdersPage() {
     ) : null,
     [db, isAuthenticated]
   )
-  const { data: pendingOrders, error: groupError } = useCollection<Order>(pendingOrdersGroupQuery)
+  const { data: pendingOrders } = useCollection<Order>(pendingOrdersGroupQuery)
 
-  // 3. Fetch the specific UserProfile document when selected
   const activeProfileRef = useMemoFirebase(() => 
     (isAuthenticated && activeProfileId) ? doc(db, 'userProfiles', activeProfileId) : null,
     [db, isAuthenticated, activeProfileId]
   )
   const { data: activeProfile, isLoading: activeProfileLoading } = useDoc<UserProfile>(activeProfileRef)
 
-  // 4. Fetch the Orders subcollection for the selected profile in real-time
   const ordersQuery = useMemoFirebase(() => 
     (isAuthenticated && activeProfileId) ? query(
       collection(db, 'userProfiles', activeProfileId, 'orders'),
@@ -72,9 +69,8 @@ export default function OrdersPage() {
     ) : null, 
     [db, isAuthenticated, activeProfileId]
   )
-  const { data: orders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery)
+  const { data: orders } = useCollection<Order>(ordersQuery)
 
-  // Filter profiles based on search
   const filteredProfiles = profiles?.filter(p => 
     `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.email?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -126,25 +122,37 @@ export default function OrdersPage() {
         orderId: order.id
       }, { merge: true })
 
-      // 4. Trigger AI Email Simulation
-      const emailContent = await generateOrderEmail({
-        customerName: `${activeProfile.firstName} ${activeProfile.lastName}`,
-        orderId: order.id.substring(0, 8).toUpperCase(),
-        total: order.total,
-        items: order.items.map(i => i.name)
-      })
+      // 4. Send Email via EmailJS (Secure Server Action)
+      const orderDateStr = new Date().toLocaleDateString('en-PH', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      const itemsDescription = order.items.map(i => 
+        `${i.quantity}x ${i.name} - ₱${(i.quantity * i.pricePerUnit).toLocaleString()}`
+      ).join('\n');
+
+      await sendOrderEmailAction({
+        customer_name: `${activeProfile.firstName} ${activeProfile.lastName}`,
+        order_id: order.id.substring(0, 8).toUpperCase(),
+        order_date: orderDateStr,
+        total_amount: order.total.toLocaleString(),
+        order_items: itemsDescription,
+        to_email: activeProfile.email
+      });
 
       toast({
-        title: "Order & Notifications Sent",
-        description: `Customer notified in-app. AI Email simulated: "${emailContent.subject}"`,
+        title: "Order Processed",
+        description: `Status updated and EmailJS notification sent to ${activeProfile.email}.`,
       })
       
       setSelectedOrder(null)
     } catch (error) {
-      console.error("Failed to process order stock:", error)
+      console.error("Failed to process order stock or send email:", error)
       toast({
-        title: "Process Error",
-        description: "An error occurred during fulfillment.",
+        title: "Fulfillment Error",
+        description: "Order updated but email notification might have failed.",
         variant: "destructive"
       })
     } finally {
