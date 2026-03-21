@@ -8,18 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Leaf, Loader2, Lock, Mail, AlertCircle } from "lucide-react"
-import { useAuth, useFirestore, useUser } from '@/firebase'
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  updateProfile 
-} from 'firebase/auth'
-import { 
-  doc, 
-  getDoc,
-  writeBatch,
-  serverTimestamp
-} from 'firebase/firestore'
+import { useAuth, useUser } from '@/firebase'
+import { signInWithEmailAndPassword } from 'firebase/auth'
 import { toast } from '@/hooks/use-toast'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
@@ -30,115 +20,40 @@ export default function LoginPage() {
   const [configError, setConfigError] = useState<string | null>(null)
   
   const auth = useAuth()
-  const db = useFirestore()
   const router = useRouter()
   const { user } = useUser()
 
   useEffect(() => {
+    // Redirect if already logged in
     if (user && !user.isAnonymous) {
       router.push('/')
     }
   }, [user, router])
-
-  const handleActivation = async (email: string, pass: string) => {
-    // 1. Superadmin Special Activation
-    if (email === 'markken@gulayan.ph' && pass === 'admin123456789') {
-      try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, pass)
-        await updateProfile(userCredential.user, { displayName: 'Mark Ken (Superadmin)' })
-        
-        const batch = writeBatch(db)
-        const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
-        batch.set(newUserRef, {
-          id: userCredential.user.uid,
-          name: 'Mark Ken (Superadmin)',
-          email: email,
-          role: 'Superadmin',
-          status: 'active',
-          createdAt: serverTimestamp(),
-          lastLogin: serverTimestamp()
-        })
-        await batch.commit()
-        return true
-      } catch (e: any) {
-        if (e.code === 'auth/email-already-in-use') return false
-        throw e
-      }
-    }
-
-    // 2. Pre-registered Staff Activation
-    const staffDocId = email.replace(/[^a-zA-Z0-9]/g, '_')
-    const staffDocRef = doc(db, 'staffUsers', staffDocId)
-    const staffSnapshot = await getDoc(staffDocRef)
-
-    if (staffSnapshot.exists()) {
-      const staffData = staffSnapshot.data()
-      if (staffData.password === pass) {
-        try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, pass)
-          await updateProfile(userCredential.user, { displayName: staffData.name })
-
-          const batch = writeBatch(db)
-          const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
-          const { password: _, ...dataToSave } = staffData 
-          
-          batch.set(newUserRef, {
-            ...dataToSave,
-            id: userCredential.user.uid,
-            lastLogin: serverTimestamp(),
-            status: 'active',
-            updatedAt: serverTimestamp()
-          })
-          batch.delete(staffDocRef)
-          await batch.commit()
-          return true
-        } catch (e: any) {
-          if (e.code === 'auth/email-already-in-use') return false
-          throw e
-        }
-      }
-    }
-    return false
-  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setConfigError(null)
 
-    // Configuration Pre-flight check
+    // Pre-flight check for API Key
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY
     if (!apiKey || apiKey.includes('[YOUR_')) {
-      setConfigError("System Error: Firebase API Key is missing or invalid in your .env file.")
+      setConfigError("System Error: Firebase API Key is missing. Please update your .env file with values from the Firebase Console.")
       setIsLoading(false)
       return
     }
 
     try {
-      // Step 1: Attempt standard sign-in
-      try {
-        await signInWithEmailAndPassword(auth, email, password)
-        toast({ title: "Welcome back!", description: "Successfully signed in." })
-        router.push('/')
-      } catch (signInErr: any) {
-        // Step 2: Handle first-time activation if sign-in fails
-        const isActivationCase = signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/invalid-credential'
-        
-        if (isActivationCase) {
-          const activated = await handleActivation(email, password)
-          if (activated) {
-            toast({ title: "Account Activated", description: "First-time setup complete." })
-            router.push('/')
-            return
-          }
-        }
-        throw signInErr
-      }
+      await signInWithEmailAndPassword(auth, email, password)
+      toast({ title: "Welcome back!", description: "Successfully signed in." })
+      router.push('/')
     } catch (err: any) {
-      console.error("Authentication Error:", err)
+      console.error("Auth Error:", err)
       let msg = "Invalid email or password."
-      if (err.code === 'auth/network-request-failed') msg = "Network error. Please check your connection."
-      if (err.code === 'auth/api-key-not-valid') msg = "Configuration error: Invalid API Key."
+      if (err.code === 'auth/network-request-failed') msg = "Network error. Check your connection."
+      if (err.code === 'auth/user-not-found') msg = "No account found with this email."
+      if (err.code === 'auth/wrong-password') msg = "Incorrect password."
+      if (err.code === 'auth/api-key-not-valid') msg = "Configuration error: Invalid API Key in .env."
       
       toast({ variant: "destructive", title: "Login Failed", description: msg })
     } finally {
@@ -165,7 +80,7 @@ export default function LoginPage() {
             {configError && (
               <Alert variant="destructive" className="border-destructive/50 bg-destructive/5">
                 <AlertCircle className="h-4 w-4" />
-                <AlertTitle className="text-xs font-bold uppercase">Configuration Required</AlertTitle>
+                <AlertTitle className="text-xs font-bold uppercase">Setup Required</AlertTitle>
                 <AlertDescription className="text-xs leading-relaxed">{configError}</AlertDescription>
               </Alert>
             )}
@@ -176,7 +91,7 @@ export default function LoginPage() {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="markken@gulayan.ph" 
+                  placeholder="staff@gulayan.ph" 
                   className="pl-10 h-12 rounded-xl"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -191,6 +106,7 @@ export default function LoginPage() {
                 <Input 
                   id="password" 
                   type="password" 
+                  placeholder="••••••••"
                   className="pl-10 h-12 rounded-xl"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -208,7 +124,7 @@ export default function LoginPage() {
                 Authorized Personnel Only
               </p>
               <p className="text-[9px] text-muted-foreground/60 italic">
-                v1.2.0 Build (Secure Environment)
+                Secure Management Environment
               </p>
             </div>
           </CardFooter>
