@@ -43,22 +43,27 @@ export default function LoginPage() {
   const handleActivation = async (email: string, pass: string) => {
     // 1. Superadmin Special Activation
     if (email === 'markken@gulayan.ph' && pass === 'admin123456789') {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, pass)
-      await updateProfile(userCredential.user, { displayName: 'Mark Ken (Superadmin)' })
-      
-      const batch = writeBatch(db)
-      const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
-      batch.set(newUserRef, {
-        id: userCredential.user.uid,
-        name: 'Mark Ken (Superadmin)',
-        email: email,
-        role: 'Superadmin',
-        status: 'active',
-        createdAt: serverTimestamp(),
-        lastLogin: serverTimestamp()
-      })
-      await batch.commit()
-      return true
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, pass)
+        await updateProfile(userCredential.user, { displayName: 'Mark Ken (Superadmin)' })
+        
+        const batch = writeBatch(db)
+        const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
+        batch.set(newUserRef, {
+          id: userCredential.user.uid,
+          name: 'Mark Ken (Superadmin)',
+          email: email,
+          role: 'Superadmin',
+          status: 'active',
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp()
+        })
+        await batch.commit()
+        return true
+      } catch (e: any) {
+        if (e.code === 'auth/email-already-in-use') return false
+        throw e
+      }
     }
 
     // 2. Pre-registered Staff Activation
@@ -98,37 +103,34 @@ export default function LoginPage() {
     setIsLoading(true)
     setError(null)
 
-    // Check for missing configuration
+    // Configuration Check
     if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY.includes('[YOUR_')) {
-      setError("Firebase Configuration is missing. Please add your API Key to the .env file.")
+      setError("System Configuration Error: Missing API Credentials in .env file.")
       setIsLoading(false)
       return
     }
 
     try {
-      // Step 1: Attempt standard sign-in
+      // Step 1: Attempt Standard Login
       try {
         await signInWithEmailAndPassword(auth, email, password)
         toast({ title: "Welcome back!", description: "Successfully signed in." })
         router.push('/')
       } catch (signInErr: any) {
-        // Handle invalid credentials by attempting activation
-        if (signInErr.code === 'auth/invalid-credential' || signInErr.code === 'auth/user-not-found' || signInErr.code === 'auth/wrong-password') {
-          const activated = await handleActivation(email, password)
-          if (activated) {
-            toast({ title: "Account Activated", description: "Your credentials have been verified." })
-            router.push('/')
-            return
-          }
+        // Step 2: If failed, check for first-time account activation
+        const activated = await handleActivation(email, password)
+        if (activated) {
+          toast({ title: "Account Activated", description: "First-time setup complete." })
+          router.push('/')
+          return
         }
         throw signInErr
       }
     } catch (err: any) {
       console.error("Login Error:", err)
       let msg = "Invalid email or password."
-      
-      if (err.code === 'auth/api-key-not-valid') msg = "Invalid Firebase API Key. Check your .env file."
       if (err.code === 'auth/network-request-failed') msg = "Network error. Please check your connection."
+      if (err.code === 'auth/api-key-not-valid') msg = "Configuration error: Invalid API Key."
       
       setError(msg)
       toast({ variant: "destructive", title: "Login Failed", description: msg })
@@ -148,7 +150,7 @@ export default function LoginPage() {
           </div>
           <CardTitle className="text-2xl font-headline font-bold">GulayanFlow</CardTitle>
           <CardDescription>
-            Enter your credentials to manage Gemma's Gulayan.
+            Enter your credentials to access the inventory system.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>
@@ -192,8 +194,7 @@ export default function LoginPage() {
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button className="w-full h-11 text-base font-bold" type="submit" disabled={isLoading}>
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Sign In
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Sign In"}
             </Button>
             <p className="text-center text-xs text-muted-foreground">
               Authorized personnel only.
