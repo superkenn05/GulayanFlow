@@ -4,7 +4,14 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Explicitly allow access to global store configuration
     match /storeConfigs/{configId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // Allow users to read their own notifications
+    match /userProfiles/{userId}/notifications/{notificationId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null;
     }
 
     // Explicitly allow collection group queries for 'orders'
@@ -13,7 +20,6 @@ service cloud.firestore {
     }
 
     // Explicitly allow collection group queries and nested reads for 'reviews'
-    // Path: /products/{productId}/reviews/{reviewId}
     match /products/{productId}/reviews/{reviewId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null;

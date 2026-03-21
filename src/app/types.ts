@@ -74,3 +74,13 @@ export type Order = {
   paymentMethod: string;
   userId: string;
 };
+
+export type Notification = {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  status: 'read' | 'unread';
+  createdAt: any;
+  orderId: string;
+};

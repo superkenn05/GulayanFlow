@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ShoppingBasket, Eye, Loader2, MapPin, CreditCard, Calendar, User, Search, ChevronRight, CheckCircle2 } from "lucide-react"
+import { ShoppingBasket, Eye, Loader2, MapPin, CreditCard, Calendar, User, Search, ChevronRight, CheckCircle2, MailCheck } from "lucide-react"
 import { 
   Dialog, 
   DialogContent, 
@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates'
 import { toast } from '@/hooks/use-toast'
+import { generateOrderEmail } from '@/ai/flows/order-notification-flow'
 
 export default function OrdersPage() {
   const [mounted, setMounted] = useState(false)
@@ -80,7 +81,7 @@ export default function OrdersPage() {
   )
 
   const handleCompleteOrder = async (order: Order) => {
-    if (!activeProfileId || isProcessing) return
+    if (!activeProfileId || isProcessing || !activeProfile) return
     setIsProcessing(true)
 
     try {
@@ -88,13 +89,11 @@ export default function OrdersPage() {
       for (const item of order.items) {
         const productRef = doc(db, 'products', item.productId)
         
-        // Use Firestore increment for atomic stock updates
         updateDocumentNonBlocking(productRef, {
           currentStockQuantity: increment(-item.quantity),
           updatedAt: serverTimestamp()
         })
 
-        // 2. Log a STOCK_OUT_SALE audit record
         const transactionRef = doc(collection(db, 'stockTransactions'))
         setDocumentNonBlocking(transactionRef, {
           id: transactionRef.id,
@@ -107,7 +106,7 @@ export default function OrdersPage() {
         }, { merge: true })
       }
 
-      // 3. Update Order Status to completed
+      // 2. Update Order Status
       const orderRef = doc(db, 'userProfiles', activeProfileId, 'orders', order.id)
       updateDocumentNonBlocking(orderRef, {
         status: 'completed',
@@ -115,16 +114,37 @@ export default function OrdersPage() {
         processedBy: user?.uid
       })
 
-      toast({
-        title: "Order Processed",
-        description: `Stock levels deducted and transaction logged.`,
+      // 3. Create In-App Notification for User
+      const notificationRef = doc(collection(db, 'userProfiles', activeProfileId, 'notifications'))
+      setDocumentNonBlocking(notificationRef, {
+        id: notificationRef.id,
+        title: "Order Completed! 🥳",
+        message: `Hi ${activeProfile.firstName}, your order #${order.id.substring(0, 8).toUpperCase()} is now complete. Thank you for choosing Gemma's Gulayan!`,
+        type: 'order_status',
+        status: 'unread',
+        createdAt: serverTimestamp(),
+        orderId: order.id
+      }, { merge: true })
+
+      // 4. Trigger AI Email Simulation
+      const emailContent = await generateOrderEmail({
+        customerName: `${activeProfile.firstName} ${activeProfile.lastName}`,
+        orderId: order.id.substring(0, 8).toUpperCase(),
+        total: order.total,
+        items: order.items.map(i => i.name)
       })
+
+      toast({
+        title: "Order & Notifications Sent",
+        description: `Customer notified in-app. AI Email simulated: "${emailContent.subject}"`,
+      })
+      
       setSelectedOrder(null)
     } catch (error) {
       console.error("Failed to process order stock:", error)
       toast({
         title: "Process Error",
-        description: "An error occurred while updating inventory.",
+        description: "An error occurred during fulfillment.",
         variant: "destructive"
       })
     } finally {
@@ -160,13 +180,6 @@ export default function OrdersPage() {
           <p className="text-muted-foreground">Monitor and fulfill customer purchase requests.</p>
         </div>
       </div>
-
-      {groupError && (
-        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-xs">
-          <strong>Database Sync Notice:</strong> Cross-customer order indicators require a Firestore index. 
-          Please click the link in your console or error overlay to enable store-wide alerts.
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <Card className="lg:col-span-4 h-fit">
@@ -216,9 +229,6 @@ export default function OrdersPage() {
                     </button>
                   )
                 })}
-                {!profilesLoading && filteredProfiles?.length === 0 && (
-                  <div className="p-8 text-center text-sm text-muted-foreground">No customers matched your search.</div>
-                )}
               </div>
             </ScrollArea>
           </CardContent>
@@ -258,15 +268,13 @@ export default function OrdersPage() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-destructive italic">Error loading profile details.</p>
+                    <p className="text-sm text-destructive italic">Error loading profile.</p>
                   )}
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader>
-                  <CardTitle>History</CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle>Order History</CardTitle></CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
@@ -280,21 +288,18 @@ export default function OrdersPage() {
                     </TableHeader>
                     <TableBody>
                       {orders?.map((order) => (
-                        <TableRow key={order.id} className="group animate-in fade-in duration-300">
+                        <TableRow key={order.id}>
                           <TableCell className="font-mono text-xs font-bold text-primary">
                             {order.id?.substring(0, 8).toUpperCase()}
                           </TableCell>
-                          <TableCell className="text-xs whitespace-nowrap">
+                          <TableCell className="text-xs">
                             {formatTimestamp(order.createdAt)}
                           </TableCell>
                           <TableCell className="font-bold">
                             ₱{(order.total || 0).toLocaleString()}
                           </TableCell>
                           <TableCell>
-                            <Badge 
-                              variant={order.status === 'completed' ? 'default' : 'secondary'} 
-                              className="capitalize text-[10px]"
-                            >
+                            <Badge variant={order.status === 'completed' ? 'default' : 'secondary'}>
                               {order.status || 'pending'}
                             </Badge>
                           </TableCell>
@@ -305,20 +310,6 @@ export default function OrdersPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      {ordersLoading && (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-10 opacity-50">
-                            <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      {!ordersLoading && orders?.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-10 text-muted-foreground italic">
-                            No orders found for this customer.
-                          </TableCell>
-                        </TableRow>
-                      )}
                     </TableBody>
                   </Table>
                 </CardContent>
@@ -330,88 +321,60 @@ export default function OrdersPage() {
 
       <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
         <DialogContent className="sm:max-w-[550px]">
-          <DialogHeader>
-            <DialogTitle>Order Summary</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Order Summary</DialogTitle></DialogHeader>
           
           {selectedOrder && (
             <div className="space-y-6 py-4">
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div className="space-y-1">
-                  <p className="uppercase font-bold text-muted-foreground flex items-center gap-1">
-                    <Calendar className="h-3 w-3" /> Date Placed
-                  </p>
+                  <p className="uppercase font-bold text-muted-foreground">Date Placed</p>
                   <p className="font-medium">{formatTimestamp(selectedOrder.createdAt)}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="uppercase font-bold text-muted-foreground flex items-center gap-1">
-                    <CreditCard className="h-3 w-3" /> Method
-                  </p>
+                  <p className="uppercase font-bold text-muted-foreground">Method</p>
                   <p className="font-medium">{selectedOrder.paymentMethod || "N/A"}</p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                  <MapPin className="h-3 w-3 text-primary" /> Delivery Info
-                </h4>
-                <p className="text-sm bg-muted/30 p-4 rounded-xl border italic leading-relaxed">
-                  {selectedOrder.address || "No delivery address provided."}
-                </p>
+                <h4 className="text-[10px] font-bold uppercase text-muted-foreground">Delivery Address</h4>
+                <p className="text-sm bg-muted/30 p-4 rounded-xl border italic">{selectedOrder.address}</p>
               </div>
 
               <Separator />
 
               <div className="space-y-3">
-                <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Purchased Items</h4>
-                <div className="border rounded-2xl overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-muted/30">
-                      <TableRow>
-                        <TableHead className="text-[10px]">Item</TableHead>
-                        <TableHead className="text-[10px] text-center">Qty</TableHead>
-                        <TableHead className="text-[10px] text-right">Unit</TableHead>
-                        <TableHead className="text-[10px] text-right">Subtotal</TableHead>
+                <h4 className="text-[10px] font-bold uppercase text-muted-foreground">Items</h4>
+                <Table>
+                  <TableBody>
+                    {selectedOrder.items?.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell className="text-xs py-2">{item.name}</TableCell>
+                        <TableCell className="text-xs py-2">x{item.quantity}</TableCell>
+                        <TableCell className="text-xs text-right py-2">₱{(item.quantity * item.pricePerUnit).toLocaleString()}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedOrder.items?.map((item, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell className="text-xs py-3">{item.name}</TableCell>
-                          <TableCell className="text-xs text-center py-3">{item.quantity}</TableCell>
-                          <TableCell className="text-xs text-right py-3">₱{(item.pricePerUnit || 0).toLocaleString()}</TableCell>
-                          <TableCell className="text-xs text-right font-bold py-3 text-primary">
-                            ₱{(item.quantity * (item.pricePerUnit || 0)).toLocaleString()}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
 
-              <div className="flex justify-between items-center pt-6 mt-4 border-t-2 border-dashed">
-                <Badge variant={selectedOrder.status === 'completed' ? 'default' : 'outline'}>
-                  {selectedOrder.status?.toUpperCase()}
-                </Badge>
-                <div className="text-right">
-                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Total Amount</p>
-                  <p className="text-3xl font-black text-primary">₱{(selectedOrder.total || 0).toLocaleString()}</p>
-                </div>
+              <div className="flex justify-between items-center pt-4 border-t-2 border-dashed">
+                <Badge variant={selectedOrder.status === 'completed' ? 'default' : 'outline'}>{selectedOrder.status?.toUpperCase()}</Badge>
+                <p className="text-2xl font-black text-primary">₱{(selectedOrder.total || 0).toLocaleString()}</p>
               </div>
             </div>
           )}
           
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setSelectedOrder(null)}>Close</Button>
             {selectedOrder?.status === 'pending' && (
               <Button 
-                className="gap-2 bg-primary hover:bg-primary/90" 
+                className="gap-2" 
                 onClick={() => handleCompleteOrder(selectedOrder)}
                 disabled={isProcessing}
               >
-                {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                Complete & Deduct Stock
+                {isProcessing ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}
+                Complete & Notify
               </Button>
             )}
           </DialogFooter>

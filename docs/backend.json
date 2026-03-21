@@ -41,6 +41,20 @@
         }
       }
     },
+    "Notification": {
+      "title": "Notification",
+      "type": "object",
+      "description": "Alerts and messages sent to users.",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "status": { "type": "string", "enum": ["read", "unread"], "default": "unread" },
+        "createdAt": { "type": "object" },
+        "orderId": { "type": "string" }
+      }
+    },
     "Category": {
       "title": "Category",
       "type": "object",
@@ -142,6 +156,10 @@
     "/userProfiles/{userId}/orders/{orderId}": {
       "schema": "Order",
       "description": "Orders placed by a specific user."
+    },
+    "/userProfiles/{userId}/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications."
     },
     "/staffUsers/{staffUserId}": {
       "schema": "StaffUser",
