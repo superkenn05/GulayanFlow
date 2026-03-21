@@ -56,6 +56,13 @@ export default function LoginPage() {
         router.push('/')
         return
       } catch (signInErr: any) {
+        // Handle specific Firebase error codes
+        if (signInErr.code === 'auth/api-key-not-valid') {
+          setError("Database configuration error. Please check your API keys.")
+          setIsLoading(false)
+          return
+        }
+
         const isAuthError = signInErr.code === 'auth/user-not-found' || 
                            signInErr.code === 'auth/invalid-credential' || 
                            signInErr.code === 'auth/wrong-password';
@@ -63,7 +70,7 @@ export default function LoginPage() {
         if (isAuthError) {
           // 2. Handle Activation Scenarios
           
-          // Scenario A: Special case for the hardcoded Superadmin account activation
+          // Scenario A: Superadmin Activation
           if (email === 'markken@gulayan.ph' && password === 'admin123456789') {
             try {
               const userCredential = await createUserWithEmailAndPassword(auth, email, password)
@@ -94,7 +101,7 @@ export default function LoginPage() {
             }
           }
 
-          // Scenario B: General Staff Activation Lookup for pre-registered email placeholders
+          // Scenario B: Staff Activation
           const staffDocId = email.replace(/[^a-zA-Z0-9]/g, '_')
           const staffDocRef = doc(db, 'staffUsers', staffDocId)
           const staffSnapshot = await getDoc(staffDocRef)
@@ -103,12 +110,6 @@ export default function LoginPage() {
             const staffData = staffSnapshot.data()
 
             if (staffData.password === password) {
-              if (password.length < 6) {
-                setError("Temporary password is too short. Please contact Admin.")
-                setIsLoading(false)
-                return
-              }
-
               const userCredential = await createUserWithEmailAndPassword(auth, email, password)
               await updateProfile(userCredential.user, { displayName: staffData.name })
 
@@ -133,12 +134,11 @@ export default function LoginPage() {
           }
         }
         
-        // If we reach here, it's a genuine invalid credential
         throw signInErr
       }
     } catch (err: any) {
       console.error("Login Error:", err)
-      setError("Invalid email or password. If you are new staff, use the credentials provided by your manager.")
+      setError(err.message || "Invalid email or password.")
       toast({
         variant: "destructive",
         title: "Login Failed",

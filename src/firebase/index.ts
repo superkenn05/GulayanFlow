@@ -1,3 +1,4 @@
+
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
@@ -6,19 +7,16 @@ import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore'
 
 // Use global variables to ensure singletons across hot-reloads and re-renders.
-// This prevents "Unexpected state" assertion errors in the Firebase SDK (like ID: ca9).
 let globalApp: FirebaseApp | undefined;
 let globalAuth: Auth | undefined;
 let globalFirestore: Firestore | undefined;
 
 /**
  * Initializes and returns Firebase SDK instances.
- * Implements a singleton pattern to prevent multiple instances from being created,
- * which can cause internal SDK errors in Next.js development mode.
+ * Implements a singleton pattern to prevent multiple instances from being created.
  */
 export function initializeFirebase() {
   if (typeof window === 'undefined') {
-    // Basic SSR fallback: initialize or retrieve the app for server-side logic.
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     return {
       firebaseApp: app,
@@ -27,22 +25,15 @@ export function initializeFirebase() {
     };
   }
 
-  // Ensure the App is initialized only once.
   if (!globalApp) {
     if (!getApps().length) {
-      try {
-        // Attempt to initialize via Firebase App Hosting environment variables (production).
-        globalApp = initializeApp();
-      } catch (e) {
-        // Fallback to local config (development).
-        globalApp = initializeApp(firebaseConfig);
-      }
+      // Prioritize the explicit config object which reads from NEXT_PUBLIC env vars
+      globalApp = initializeApp(firebaseConfig);
     } else {
       globalApp = getApp();
     }
   }
 
-  // Ensure Auth and Firestore are initialized as singletons for the app.
   if (!globalAuth) {
     globalAuth = getAuth(globalApp);
   }
@@ -58,10 +49,6 @@ export function initializeFirebase() {
   };
 }
 
-/**
- * Utility to get SDKs for a specific app instance.
- * Favors the initializeFirebase() logic for standard usage.
- */
 export function getSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
