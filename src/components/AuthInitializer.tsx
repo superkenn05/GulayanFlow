@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -78,14 +79,18 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
 
         // Only the Superadmin should attempt to seed categories to avoid permission errors for regular staff
         if (isSuperadminEmail) {
-          const categoriesSnapshot = await getDocs(collection(db, 'categories'));
-          if (categoriesSnapshot.empty) {
-            const batch = writeBatch(db);
-            DEFAULT_CATEGORIES.forEach((cat) => {
-              const ref = doc(db, 'categories', cat.id);
-              batch.set(ref, cat);
-            });
-            await batch.commit();
+          try {
+            const categoriesSnapshot = await getDocs(collection(db, 'categories'));
+            if (categoriesSnapshot.empty) {
+              const batch = writeBatch(db);
+              DEFAULT_CATEGORIES.forEach((cat) => {
+                const ref = doc(db, 'categories', cat.id);
+                batch.set(ref, cat);
+              });
+              await batch.commit();
+            }
+          } catch (e) {
+            console.warn("Seeding failed, might be due to initial index creation or existing data:", e);
           }
         }
 
@@ -100,7 +105,6 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
   }, [auth, db, user, isUserLoading]);
 
   // Show a high-level loader only when we are verifying auth or performing critical first-run setup
-  // We allow /login to render even if isInitializing is true, provided user is null
   const shouldShowLoader = isUserLoading || (user && isInitializing);
 
   if (shouldShowLoader) {

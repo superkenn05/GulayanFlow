@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect } from 'react'
@@ -46,42 +47,54 @@ export default function LoginPage() {
 
     try {
       // 1. Try standard login first
-      await signInWithEmailAndPassword(auth, email, password)
-      toast({
-        title: "Welcome back!",
-        description: "Successfully signed in.",
-      })
-      router.push('/')
-    } catch (err: any) {
-      // 2. Handle Activation or Errors
-      const isAuthError = err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password';
-      
-      if (isAuthError) {
-        try {
-          // Special case for the hardcoded Superadmin account
+      try {
+        await signInWithEmailAndPassword(auth, email, password)
+        toast({
+          title: "Welcome back!",
+          description: "Successfully signed in.",
+        })
+        router.push('/')
+        return
+      } catch (signInErr: any) {
+        const isAuthError = signInErr.code === 'auth/user-not-found' || 
+                           signInErr.code === 'auth/invalid-credential' || 
+                           signInErr.code === 'auth/wrong-password';
+
+        if (isAuthError) {
+          // 2. Handle Activation Scenarios
+          
+          // Scenario A: Special case for the hardcoded Superadmin account activation
           if (email === 'markken@gulayan.ph' && password === 'admin123456789') {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-            await updateProfile(userCredential.user, { displayName: 'Mark Ken (Superadmin)' })
-            
-            const batch = writeBatch(db)
-            const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
-            batch.set(newUserRef, {
-              id: userCredential.user.uid,
-              name: 'Mark Ken (Superadmin)',
-              email: email,
-              role: 'Superadmin',
-              status: 'active',
-              createdAt: serverTimestamp(),
-              lastLogin: serverTimestamp()
-            })
-            await batch.commit()
-            
-            toast({ title: "Superadmin Activated", description: "Welcome, Mark Ken!" })
-            router.push('/')
-            return
+            try {
+              const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+              await updateProfile(userCredential.user, { displayName: 'Mark Ken (Superadmin)' })
+              
+              const batch = writeBatch(db)
+              const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
+              batch.set(newUserRef, {
+                id: userCredential.user.uid,
+                name: 'Mark Ken (Superadmin)',
+                email: email,
+                role: 'Superadmin',
+                status: 'active',
+                createdAt: serverTimestamp(),
+                lastLogin: serverTimestamp()
+              })
+              await batch.commit()
+              
+              toast({ title: "Superadmin Activated", description: "Welcome, Mark Ken!" })
+              router.push('/')
+              return
+            } catch (createErr: any) {
+              if (createErr.code === 'auth/email-already-in-use') {
+                setError("Incorrect password for this account.")
+              } else {
+                throw createErr
+              }
+            }
           }
 
-          // General Staff Activation Lookup
+          // Scenario B: General Staff Activation Lookup for pre-registered email placeholders
           const staffDocId = email.replace(/[^a-zA-Z0-9]/g, '_')
           const staffDocRef = doc(db, 'staffUsers', staffDocId)
           const staffSnapshot = await getDoc(staffDocRef)
@@ -89,23 +102,19 @@ export default function LoginPage() {
           if (staffSnapshot.exists()) {
             const staffData = staffSnapshot.data()
 
-            // Verify temporary password stored in the placeholder doc
             if (staffData.password === password) {
               if (password.length < 6) {
-                setError("Password must be at least 6 characters.")
+                setError("Temporary password is too short. Please contact Admin.")
                 setIsLoading(false)
                 return
               }
 
-              // Create the official Firebase Auth user
               const userCredential = await createUserWithEmailAndPassword(auth, email, password)
               await updateProfile(userCredential.user, { displayName: staffData.name })
 
-              // Migrate placeholder data to the new UID-based document
               const batch = writeBatch(db)
               const newUserRef = doc(db, 'staffUsers', userCredential.user.uid)
-              
-              const { password: _, ...dataToSave } = staffData // Remove temp password from permanent doc
+              const { password: _, ...dataToSave } = staffData 
               
               batch.set(newUserRef, {
                 ...dataToSave,
@@ -114,8 +123,6 @@ export default function LoginPage() {
                 status: 'active',
                 updatedAt: serverTimestamp()
               })
-
-              // Clean up the placeholder
               batch.delete(staffDocRef)
 
               await batch.commit()
@@ -124,17 +131,14 @@ export default function LoginPage() {
               return
             }
           }
-        } catch (dbErr: any) {
-          console.error("Activation process error:", dbErr)
-          if (dbErr.code === 'auth/email-already-in-use') {
-            setError("This email is already registered. Please check your password.")
-            setIsLoading(false)
-            return
-          }
         }
+        
+        // If we reach here, it's a genuine invalid credential
+        throw signInErr
       }
-
-      setError("Invalid email or password. If you are a new staff, please use the credentials provided by your manager.")
+    } catch (err: any) {
+      console.error("Login Error:", err)
+      setError("Invalid email or password. If you are new staff, use the credentials provided by your manager.")
       toast({
         variant: "destructive",
         title: "Login Failed",
