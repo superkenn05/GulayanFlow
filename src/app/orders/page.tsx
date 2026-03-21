@@ -22,7 +22,6 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates'
 import { toast } from '@/hooks/use-toast'
-import { generateOrderEmail } from '@/ai/flows/order-notification-flow'
 import { sendOrderEmailAction } from './email-actions'
 
 export default function OrdersPage() {
@@ -144,7 +143,7 @@ export default function OrdersPage() {
 
       toast({
         title: "Order Processed",
-        description: `Status updated and EmailJS notification sent to ${activeProfile.email}.`,
+        description: `Status updated and Email notification sent to ${activeProfile.email}.`,
       })
       
       setSelectedOrder(null)
