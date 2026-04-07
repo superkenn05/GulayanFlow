@@ -1,4 +1,3 @@
-'use server';
 /**
  * @fileOverview An AI agent that provides inventory insights based on current stock and transaction history.
  *

@@ -1,4 +1,3 @@
-'use server';
 /**
  * @fileOverview An AI agent that estimates nutritional values for fruits and vegetables.
  *

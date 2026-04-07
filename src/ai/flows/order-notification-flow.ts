@@ -1,5 +1,4 @@
 
-'use server';
 /**
  * @fileOverview A flow to generate personalized order completion emails.
  *

@@ -1,9 +1,7 @@
 
-'use server';
-
 /**
- * @fileOverview Server action to securely send order completion emails via EmailJS.
- * This keeps API keys and template IDs on the server.
+ * @fileOverview Client-side function to send order completion emails via EmailJS.
+ * API keys are exposed to the client for static export compatibility.
  */
 
 export async function sendOrderEmailAction(params: {
@@ -14,9 +12,11 @@ export async function sendOrderEmailAction(params: {
   order_items: string;
   to_email: string;
 }) {
-  const serviceId = process.env.EMAILJS_SERVICE_ID;
-  const templateId = process.env.EMAILJS_TEMPLATE_ID;
-  const publicKey = process.env.EMAILJS_PUBLIC_KEY;
+  // Note: In production, consider using Firebase Functions for server-side email sending
+  // to keep API keys secure. For now, using client-side for static export compatibility.
+  const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
+  const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
+  const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
 
   if (!serviceId || !templateId || !publicKey) {
     console.error("Missing EmailJS configuration in environment variables.");
@@ -46,7 +46,7 @@ export async function sendOrderEmailAction(params: {
 
     if (!response.ok) {
       const errorText = await response.text();
-      
+
       // Handle the specific "non-browser environment" error from EmailJS
       if (errorText.includes("non-browser environments")) {
         throw new Error("EmailJS Setup Required: Please enable 'Allow API access from non-browser environments' in your EmailJS Dashboard (Account > Security).");

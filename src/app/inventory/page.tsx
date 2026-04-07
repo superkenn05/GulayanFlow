@@ -30,7 +30,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
-import { getNutritionalValues } from '@/ai/flows/nutritional-values-flow'
+// import { getNutritionalValues } from '@/ai/flows/nutritional-values-flow' // Disabled for static export
 import { toast } from '@/hooks/use-toast'
 import { useCollection, useFirestore, useMemoFirebase, useUser, useDoc } from '@/firebase'
 import { collection, query, orderBy, doc, serverTimestamp } from 'firebase/firestore'
@@ -121,6 +121,13 @@ export default function InventoryPage() {
     }
     setIsAiLoading(true)
     try {
+      // Skip AI functionality in static export mode (Firebase Hosting)
+      const isStaticExport = typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_ENABLE_AI
+      if (isStaticExport) {
+        toast({ title: "AI unavailable", description: "Nutrition estimation is disabled in static hosting mode.", variant: "destructive" })
+        setIsAiLoading(false)
+        return
+      }
       const nutrition = await getNutritionalValues({ name: formData.name, description: formData.description })
       setFormData(prev => ({ ...prev, ...nutrition }))
       toast({ title: "Magic happened! ✨", description: `Nutrition estimated for ${formData.name}.` })

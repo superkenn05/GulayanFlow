@@ -4,17 +4,29 @@ import React, { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { BrainCircuit, Sparkles, Loader2, ArrowRightCircle, CheckCircle2 } from "lucide-react"
-import { aiInventoryInsights, AIInventoryInsightsOutput } from '@/ai/flows/ai-inventory-insights'
+// import { aiInventoryInsights, AIInventoryInsightsOutput } from '@/ai/flows/ai-inventory-insights' // Disabled for static export
 import { MOCK_PRODUCTS, MOCK_TRANSACTIONS } from '../lib/mock-data'
 import { Badge } from '@/components/ui/badge'
 
 export default function AIInsightsPage() {
   const [loading, setLoading] = useState(false)
-  const [insights, setInsights] = useState<AIInventoryInsightsOutput | null>(null)
+  const [insights, setInsights] = useState<{summary?: string, recommendations?: string[], trends?: string[]} | null>(null)
 
   const generateInsights = async () => {
     setLoading(true)
     try {
+      // Skip AI functionality in static export mode (Firebase Hosting)
+      const isStaticExport = typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_ENABLE_AI
+      if (isStaticExport) {
+        setInsights({
+          summary: "AI insights are disabled in static hosting mode. Deploy with Firebase App Hosting to enable AI features.",
+          recommendations: ["Consider upgrading to Firebase App Hosting for full AI functionality"],
+          trends: ["Static hosting limits advanced features"]
+        })
+        setLoading(false)
+        return
+      }
+
       const currentInventory = MOCK_PRODUCTS.map(p => ({
         productId: p.id,
         name: p.name,
