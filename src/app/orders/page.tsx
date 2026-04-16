@@ -38,43 +38,34 @@ export default function OrdersPage() {
     setMounted(true)
   }, [])
 
-  const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous
-
-  const profilesQuery = useMemoFirebase(() => 
-    isAuthenticated ? query(collection(db, 'userProfiles')) : null,
-    [db, isAuthenticated]
-  )
+  const isAuthenticated = mounted
+  const profilesQuery = useMemoFirebase(() => mounted ? query(collection(db, 'userProfiles')) : null, [db, mounted])
   const { data: profiles, isLoading: profilesLoading } = useCollection<UserProfile>(profilesQuery)
 
   const pendingOrdersGroupQuery = useMemoFirebase(() => 
-    isAuthenticated ? query(
+    mounted ? query(
       collectionGroup(db, 'orders'),
       where('status', '==', 'pending')
-    ) : null,
-    [db, isAuthenticated]
-  )
+    ) : null, [db, mounted])
   const { data: pendingOrders } = useCollection<Order>(pendingOrdersGroupQuery)
 
   const activeProfileRef = useMemoFirebase(() => 
-    (isAuthenticated && activeProfileId) ? doc(db, 'userProfiles', activeProfileId) : null,
-    [db, isAuthenticated, activeProfileId]
+    (mounted && activeProfileId) ? doc(db, 'userProfiles', activeProfileId) : null,
+    [db, mounted, activeProfileId]
   )
   const { data: activeProfile, isLoading: activeProfileLoading } = useDoc<UserProfile>(activeProfileRef)
-
   const ordersQuery = useMemoFirebase(() => 
-    (isAuthenticated && activeProfileId) ? query(
+    (mounted && activeProfileId) ? query(
       collection(db, 'userProfiles', activeProfileId, 'orders'),
       orderBy('createdAt', 'desc')
     ) : null, 
-    [db, isAuthenticated, activeProfileId]
+    [db, mounted, activeProfileId]
   )
   const { data: orders } = useCollection<Order>(ordersQuery)
-
   const filteredProfiles = profiles?.filter(p => 
     `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
     p.email?.toLowerCase().includes(searchQuery.toLowerCase())
   )
-
   const handleCompleteOrder = async (order: Order) => {
     if (!activeProfileId || isProcessing || !activeProfile) return
     setIsProcessing(true)

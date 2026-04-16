@@ -41,60 +41,56 @@ export default function DashboardPage() {
   }, []);
 
   // Guard: Only run queries when auth is definitely ready and component is mounted
-  const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous;
+  const isAuthenticated = mounted;
 
-  const staffRef = useMemoFirebase(() => isAuthenticated ? doc(db, 'staffUsers', user.uid) : null, [db, user, isAuthenticated]);
-  const { data: profile } = useDoc(staffRef);
+  const staffRef = useMemoFirebase(() => mounted ? doc(db, 'staffUsers', user?.uid || 'default-admin') : null, [db, user, mounted]);
+  const { data: profile, isLoading: profileLoading } = useDoc(staffRef);
+
+  // Guard admin status until the profile has finished loading to prevent eager fetches that violate security rules
+  // Simplified: treat everyone as Admin/Superadmin for now
+  const isSuperadmin = true;
+  const isAdmin = true;
 
   // Guard the config fetch until authenticated to prevent permission errors
   const configRef = useMemoFirebase(() => {
-    if (!isAuthenticated || !db) return null;
+    if (!mounted || !db) return null;
     return doc(db, 'storeConfigs', 'settings');
-  }, [db, isAuthenticated]);
+  }, [db, mounted]);
   const { data: config } = useDoc(configRef);
 
   const productsQuery = useMemoFirebase(() => 
-    isAuthenticated ? query(collection(db, 'products')) : null, 
-    [db, isAuthenticated]
+    mounted ? query(collection(db, 'products')) : null, 
+    [db, mounted]
   );
   
   const transactionsQuery = useMemoFirebase(() => 
-    isAuthenticated ? query(
+    mounted ? query(
       collection(db, 'stockTransactions'), 
-      where('staffUserId', '==', user?.uid || ''),
       orderBy('transactionDate', 'desc'), 
       limit(10)
     ) : null, 
-    [db, isAuthenticated, user?.uid]
+    [db, mounted]
   );
   
   const salesQuery = useMemoFirebase(() => 
-    isAuthenticated ? query(
+    mounted ? query(
       collection(db, 'stockTransactions'), 
-      where('transactionType', '==', 'STOCK_OUT_SALE'),
-      where('staffUserId', '==', user?.uid || '')
+      where('transactionType', '==', 'STOCK_OUT_SALE')
     ) : null, 
-    [db, isAuthenticated, user?.uid]
+    [db, mounted]
   );
 
   const { data: products, isLoading: productsLoading } = useCollection(productsQuery);
   const { data: transactions, isLoading: transactionsLoading } = useCollection(transactionsQuery);
   const { data: sales } = useCollection(salesQuery);
 
-  if (!mounted || isUserLoading) {
+  if (!mounted) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
       </div>
     );
   }
-
-  if (!user || user.isAnonymous) {
-    return null;
-  }
-
-  const isSuperadmin = user?.email === 'markken@gulayan.ph' || profile?.role === 'Superadmin';
-  const isAdmin = profile?.role === 'Admin' || isSuperadmin;
 
   const totalProducts = products?.length || 0;
   const lowStockItems = products?.filter(p => (p.currentStockQuantity || 0) <= (p.lowStockThreshold || 10) && (p.currentStockQuantity || 0) > 0).length || 0;

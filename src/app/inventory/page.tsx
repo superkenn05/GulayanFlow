@@ -59,13 +59,14 @@ export default function InventoryPage() {
   }, [localPreview])
 
   // Guard: Only run queries when auth is ready and component is mounted
-  const isReady = mounted && !isUserLoading && !!user && !user.isAnonymous
+  const isReady = mounted
 
-  const staffRef = useMemoFirebase(() => isReady ? doc(db, 'staffUsers', user.uid) : null, [db, user, isReady])
-  const { data: profile } = useDoc(staffRef)
+  const staffRef = useMemoFirebase(() => mounted ? doc(db, 'staffUsers', user?.uid || 'default-admin') : null, [db, user, mounted])
+  const { data: profile, isLoading: profileLoading } = useDoc(staffRef)
 
-  const isSuperadmin = user?.email === 'markken@gulayan.ph'
-  const isAdmin = profile?.role === 'Admin' || profile?.role === 'Superadmin' || isSuperadmin
+  // Simplified: treat everyone as Admin for now
+  const isSuperadmin = true;
+  const isAdmin = true;
 
   const productsQuery = useMemoFirebase(() => isReady ? query(collection(db, 'products'), orderBy('name', 'asc')) : null, [db, isReady])
   const categoriesQuery = useMemoFirebase(() => isReady ? query(collection(db, 'categories'), orderBy('name', 'asc')) : null, [db, isReady])
@@ -260,14 +261,6 @@ export default function InventoryPage() {
       deleteDocumentNonBlocking(doc(db, 'products', id))
       toast({ title: "Product Deleted", description: "The product has been removed from the catalog." })
     }
-  }
-
-  if (!mounted || isUserLoading || !user || user.isAnonymous) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
-      </div>
-    )
   }
 
   return (

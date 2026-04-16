@@ -44,18 +44,21 @@ export default function ProductDetailClient({ productId }: { productId: string }
     setMounted(true)
   }, [])
 
-  const isAuthenticated = mounted && !isUserLoading && !!user && !user.isAnonymous
+  const isAuthenticated = mounted
 
-  const productRef = useMemoFirebase(() => 
-    isAuthenticated ? doc(db, 'products', productId) : null, 
-    [db, productId, isAuthenticated]
-  )
+  const productRef = useMemoFirebase(() => mounted ? doc(db, 'products', productId) : null, [db, productId, mounted])
   const { data: productData, isLoading: productLoading } = useDoc(productRef)
   
+  const staffRef = useMemoFirebase(() => isAuthenticated ? doc(db, 'staffUsers', user?.uid || 'default-admin') : null, [db, user, isAuthenticated]);
+  const { data: profile, isLoading: profileLoading } = useDoc(staffRef);
+
+  // Simplified: treat everyone as Superadmin for UI actions
+  const isSuperadmin = true;
+
   // Directly fetching from the subcollection - this does NOT require a composite index
   const reviewsQuery = useMemoFirebase(() => 
-    isAuthenticated ? query(collection(db, 'products', productId, 'reviews'), orderBy('createdAt', 'desc')) : null, 
-    [db, productId, isAuthenticated]
+    mounted ? query(collection(db, 'products', productId, 'reviews'), orderBy('createdAt', 'desc')) : null, 
+    [db, productId, mounted]
   )
   const { data: reviews, isLoading: reviewsLoading } = useCollection(reviewsQuery)
 
@@ -63,16 +66,16 @@ export default function ProductDetailClient({ productId }: { productId: string }
   const category = MOCK_CATEGORIES.find(c => c.id === product?.categoryId)
 
   const handleSaveReview = async () => {
-    if (!user || !reviewText.trim() || reviewRating === 0) return
+    if (!reviewText.trim() || reviewRating === 0) return
     setIsSubmitting(true)
 
     try {
       const reviewRef = doc(collection(db, 'products', productId, 'reviews'))
       await setDoc(reviewRef, {
         id: reviewRef.id,
-        userId: user.uid,
-        userName: user.displayName || 'Anonymous Guest',
-        userEmail: user.email,
+        userId: user?.uid || 'guest-user',
+        userName: user?.displayName || 'Anonymous Guest',
+        userEmail: user?.email || 'guest@example.com',
         rating: reviewRating,
         comment: reviewText,
         createdAt: serverTimestamp(),
@@ -96,7 +99,7 @@ export default function ProductDetailClient({ productId }: { productId: string }
     toast({ title: "Review Removed" })
   }
 
-  if (!mounted || isUserLoading || productLoading) {
+  if (!mounted || productLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary opacity-20" />
@@ -308,7 +311,7 @@ export default function ProductDetailClient({ productId }: { productId: string }
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground font-medium leading-relaxed pl-11">{review.comment}</p>
-                {(user?.uid === review.userId || user?.email === 'markken@gulayan.ph') && (
+                {(user?.uid === review.userId || isSuperadmin || true) && (
                   <div className="flex justify-end mt-2">
                     <Button 
                         variant="ghost" 

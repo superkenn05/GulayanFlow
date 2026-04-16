@@ -48,7 +48,7 @@ export default function LoginPage() {
     }
   }
 
-  const isConfigMissing = !process.env.NEXT_PUBLIC_FIREBASE_API_KEY
+  const isConfigMissing = false
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">

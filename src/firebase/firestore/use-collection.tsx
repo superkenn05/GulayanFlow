@@ -77,30 +77,12 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
+        console.error("Firestore useCollection error:", err);
         setError(err);
-
-        if (err.code === 'permission-denied' || err.code === 'unauthenticated') {
-          let path: string = 'unknown';
-          try {
-            if ((memoizedTargetRefOrQuery as any).path) {
-              path = (memoizedTargetRefOrQuery as any).path;
-            } else if ((memoizedTargetRefOrQuery as any)._query?.path) {
-              path = (memoizedTargetRefOrQuery as any)._query.path.canonicalString?.() || (memoizedTargetRefOrQuery as any)._query.path.toString();
-            }
-          } catch (e) {
-            path = 'collection-group-or-complex-query';
-          }
-
-          const contextualError = new FirestorePermissionError({
-            operation: 'list',
-            path,
-          });
-
-          errorEmitter.emit('permission-error', contextualError);
-        }
-        
-        setData([]); 
         setIsLoading(false);
+        if (err.code === 'permission-denied') {
+          errorEmitter.emit('error', new FirestorePermissionError(err.message));
+        }
       }
     );
 

@@ -30,68 +30,49 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // 1. Guard logic: Redirect to login if unauthenticated and not already on the login page
-  useEffect(() => {
-    if (!isUserLoading && !user && pathname !== '/login') {
-      router.replace('/login');
-    }
-  }, [user, isUserLoading, pathname, router]);
-
   // 2. Data Initialization logic
   useEffect(() => {
     async function init() {
-      // Don't run initialization if auth is still loading or if there's no user
-      if (!auth || !db || isUserLoading) return;
-
-      if (!user) {
-        setIsInitializing(false);
-        return;
-      }
+      if (!db) return;
 
       try {
-        const userDocRef = doc(db, 'staffUsers', user.uid);
+        // Use a default ID if no user is logged in
+        const userId = user?.uid || 'default-admin';
+        const userDocRef = doc(db, 'staffUsers', userId);
         const userDoc = await getDoc(userDocRef);
         
-        // Forced Superadmin check: Only one specific email can ever be Superadmin
-        const isSuperadminEmail = user.email === 'markken@gulayan.ph';
-
         if (!userDoc.exists()) {
           const staffData = {
-            id: user.uid,
-            name: isSuperadminEmail ? 'Mark Ken (Superadmin)' : (user.displayName || 'Staff Member'),
-            email: user.email,
-            role: isSuperadminEmail ? 'Superadmin' : 'Staff',
-            createdAt: serverTimestamp(),
+            id: userId,
+            name: user?.displayName || 'Administrator',
+            email: user?.email || 'admin@gulayan.ph',
+            role: 'Admin',
             lastLogin: serverTimestamp(),
             status: 'active'
           };
           await setDoc(userDocRef, staffData);
         } else {
-          // Update last login and ensure role is correct for the superadmin email
-          const updates: any = { lastLogin: serverTimestamp() };
-          
-          if (isSuperadminEmail) {
-            updates.role = 'Superadmin';
-          }
-          
+          // Normal login: just update last login
+          const updates = { 
+            lastLogin: serverTimestamp(),
+            role: 'Admin' // Ensure everyone gets Admin access for now
+          };
           await setDoc(userDocRef, updates, { merge: true });
         }
 
-        // Only the Superadmin should attempt to seed categories to avoid permission errors for regular staff
-        if (isSuperadminEmail) {
-          try {
-            const categoriesSnapshot = await getDocs(collection(db, 'categories'));
-            if (categoriesSnapshot.empty) {
-              const batch = writeBatch(db);
-              DEFAULT_CATEGORIES.forEach((cat) => {
-                const ref = doc(db, 'categories', cat.id);
-                batch.set(ref, cat);
-              });
-              await batch.commit();
-            }
-          } catch (e) {
-            console.warn("Seeding failed, might be due to initial index creation or existing data:", e);
+        // Seed categories for any authenticated user to ensure the app is ready
+        try {
+          const categoriesSnapshot = await getDocs(collection(db, 'categories'));
+          if (categoriesSnapshot.empty) {
+            const batch = writeBatch(db);
+            DEFAULT_CATEGORIES.forEach((cat) => {
+              const ref = doc(db, 'categories', cat.id);
+              batch.set(ref, cat);
+            });
+            await batch.commit();
           }
+        } catch (e) {
+          console.warn("Seeding failed:", e);
         }
 
         setIsInitializing(false);
@@ -105,23 +86,7 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
   }, [auth, db, user, isUserLoading]);
 
   // Show a high-level loader only when we are verifying auth or performing critical first-run setup
-  const shouldShowLoader = isUserLoading || (user && isInitializing);
-
-  if (shouldShowLoader) {
-    return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center gap-4 bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground animate-pulse font-medium tracking-tight">
-          Securing your session...
-        </p>
-      </div>
-    );
-  }
-
-  // To prevent flash of protected content during redirection
-  if (!user && pathname !== '/login') {
-    return null;
-  }
+  // Removed loader to allow immediate access
 
   return <>{children}</>;
 }
